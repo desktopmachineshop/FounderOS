@@ -205,13 +205,24 @@ so they never touch the seeded dev DB.
 
 ## Deploying to Railway
 
-1. Create a Railway project and point it at this repo.
-2. Set the build command to `npm run build` and the start command to `npm start`
-   (the app serves on the `PORT` Railway provides).
-3. Add a database service and any connector credentials as environment variables
-   in the Railway dashboard.
-4. Deploy. The knowledge services (G-Brain and Optimal Engine) run as companion
-   services and are referenced by URL from the app's environment.
+The repo ships a `railway.json` (Nixpacks build, `npm run build`, `npm start`,
+healthcheck on `/`) and pins Node 22 via `.node-version` / `engines`, so a
+fresh Railway service needs no build or start settings.
+
+1. Create a Railway project and add a service from this GitHub repo.
+2. Generate a public domain for the service (Settings > Networking). The app
+   serves on the `PORT` Railway injects.
+3. Optional but recommended: attach a volume at `/data` and set
+   `FOUNDER_OS_DB=/data/founder-os.db` so the SQLite store (agent runs, tasks,
+   captured notes) survives redeploys. Without it the DB re-seeds on every
+   deploy, which is fine for a read-only demo.
+4. Optional: set `FOUNDER_OS_ACCESS_TOKEN` to put the whole instance behind a
+   token challenge. Leave it unset for the public demo.
+5. Add any connector credentials from `.env.example` as service variables.
+   Without them every connector reports honest "not configured" status.
+
+The seeded demo needs no other configuration; the first request seeds the
+database.
 
 ---
 
