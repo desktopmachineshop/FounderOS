@@ -220,6 +220,10 @@ fresh Railway service needs no build or start settings.
    token challenge. Leave it unset for the public demo.
 5. Add any connector credentials from `.env.example` as service variables.
    Without them every connector reports honest "not configured" status.
+6. Do not set `NODE_ENV` as a service variable. Railway passes variables into
+   the build, and `NODE_ENV=production` makes `npm ci` skip devDependencies
+   (tailwindcss, typescript), so `next build` fails. `next start` already runs
+   in production mode without it.
 
 The seeded demo needs no other configuration; the first request seeds the
 database.
