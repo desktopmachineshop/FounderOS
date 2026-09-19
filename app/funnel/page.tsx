@@ -326,7 +326,7 @@ export default async function FunnelPage({
     .join(' + ');
   const allJourneys = isLive
     ? mergeTrakyoTouches(liveJourneys, await trakyoTouches()).filter((j) => !venture || j.venture === venture)
-    : getDb().funnel.journeys(venture);
+    : await (await getDb()).funnel.journeys(venture);
   // Quiet past DECAY_DAYS → out of the space, into the archive tab.
   const { active: journeys, archived } = splitFunnelJourneys(allJourneys, now);
   const summary = funnelSummary(journeys);

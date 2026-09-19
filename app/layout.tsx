@@ -41,16 +41,16 @@ const NAV_COMMANDS: Command[] = [
   { id: 'ext-fathom', label: 'Fathom Calls', keywords: 'meetings recordings notes', href: 'https://fathom.video', hint: 'web' },
 ];
 
-function buildCommands(): Command[] {
-  const db = getDb();
-  const tools: Command[] = db.tools.all().map((t) => ({
+async function buildCommands(): Promise<Command[]> {
+  const db = (await getDb());
+  const tools: Command[] = (await db.tools.all()).map((t) => ({
     id: `tool-${t.id}`,
     label: t.name,
     keywords: `${t.category} ${t.description}`,
     href: '/integrations',
     hint: 'tool',
   }));
-  const agents: Command[] = db.agents.all().map((a) => ({
+  const agents: Command[] = (await db.agents.all()).map((a) => ({
     id: `agent-${a.id}`,
     label: a.name,
     keywords: `${a.role} ${a.description}`,
@@ -60,7 +60,7 @@ function buildCommands(): Command[] {
   return [...NAV_COMMANDS, ...agents, ...tools];
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={fontMono.variable} suppressHydrationWarning>
       <head>
@@ -83,7 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </main>
         </div>
-        <CommandPalette commands={buildCommands()} />
+        <CommandPalette commands={await buildCommands()} />
         {/* Notion-style agent dock — the Conductor, aware of the current screen */}
         <ConductorPanel />
         {/* First-run welcome on the home screen — once per browser */}

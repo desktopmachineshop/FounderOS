@@ -4,6 +4,6 @@ import { getDb } from '@/lib/data';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const db = getDb();
-  return NextResponse.json({ metrics: db.metrics.all() });
+  const db = (await getDb());
+  return NextResponse.json({ metrics: await db.metrics.all() });
 }

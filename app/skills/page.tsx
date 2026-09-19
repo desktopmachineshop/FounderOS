@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const truncate = (t: string, n = 110) => (t.length > n ? `${t.slice(0, n).replace(/\s+\S*$/, '')}…` : t);
 
-export default function SkillsPage() {
+export default async function SkillsPage() {
   // All three catalogs, side by side: the real Claude Code skills read live
   // from disk — user-scope ~/.claude/skills plus every installed plugin's
   // skills (SKILL.md loads on demand via /api/skills/[slug]) — AND the
@@ -22,9 +22,9 @@ export default function SkillsPage() {
     filePath: s.path,
   }));
 
-  const db = getDb();
-  const agentNames = Object.fromEntries(db.agents.all().map((a) => [a.id, a.name]));
-  const operatorCards: SkillCard[] = db.skills.all().map((s) => ({
+  const db = (await getDb());
+  const agentNames = Object.fromEntries((await db.agents.all()).map((a) => [a.id, a.name]));
+  const operatorCards: SkillCard[] = (await db.skills.all()).map((s) => ({
     id: s.id,
     name: s.name,
     group: `Operator · ${s.category}`,

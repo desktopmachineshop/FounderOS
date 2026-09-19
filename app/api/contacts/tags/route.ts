@@ -7,7 +7,7 @@ import { ContactTagSchema } from '@/lib/schemas';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json({ tiers: CONTACT_TIERS, tags: getDb().contactTags.all() });
+  return NextResponse.json({ tiers: CONTACT_TIERS, tags: await (await getDb()).contactTags.all() });
 }
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  getDb().contactTags.upsert(parsed.data);
+  await (await getDb()).contactTags.upsert(parsed.data);
   return NextResponse.json({ ok: true, tag: parsed.data });
 }
 
@@ -26,6 +26,6 @@ export async function DELETE(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  getDb().contactTags.remove(parsed.data.person, parsed.data.channel);
+  await (await getDb()).contactTags.remove(parsed.data.person, parsed.data.channel);
   return NextResponse.json({ ok: true });
 }

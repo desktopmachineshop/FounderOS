@@ -49,7 +49,7 @@ async function funnelContext(): Promise<string> {
   const now = new Date();
   const [attioLive, ghlLive] = await Promise.all([attioFunnelJourneys(now), ghlFunnelJourneys(now)]);
   const live = [...(attioLive?.journeys ?? []), ...(ghlLive?.journeys ?? [])];
-  const all = live.length > 0 ? live : getDb().funnel.journeys();
+  const all = live.length > 0 ? live : await (await getDb()).funnel.journeys();
   const { active, archived } = splitFunnelJourneys(all, now);
   const summary = funnelSummary(active);
   const metas = active.map((j) => ({ j, meta: journeyMeta(j, now) }));
@@ -93,24 +93,24 @@ export async function screenContextFor(path: string): Promise<{ title: string; c
     if (clean.startsWith('/funnel')) {
       return { title, context: await funnelContext() };
     }
-    const db = getDb();
+    const db = (await getDb());
     if (clean === '/' || clean.startsWith('/agents') || clean.startsWith('/org')) {
-      const agents = db.agents.all();
+      const agents = await db.agents.all();
       const active = agents.filter((a) => a.status === 'active').length;
       return {
         title,
-        context: `${title}: agent roster — ${agents.length} agents (${active} active) across ${db.departments.all().length} pillars.`,
+        context: `${title}: agent roster — ${agents.length} agents (${active} active) across ${(await db.departments.all()).length} pillars.`,
       };
     }
     if (clean.startsWith('/integrations')) {
-      const tools = db.tools.all();
+      const tools = await db.tools.all();
       return {
         title,
         context: `${title}: connections board — ${tools.length} integrations tracked (${tools.filter((t) => t.status === 'connected').length} connected).`,
       };
     }
     if (clean.startsWith('/roadmap')) {
-      return { title, context: `${title}: ${db.roadmap.all().length} roadmap items across quarters.` };
+      return { title, context: `${title}: ${(await db.roadmap.all()).length} roadmap items across quarters.` };
     }
     return { title, context: `${title} view of Founder OS.` };
   } catch {

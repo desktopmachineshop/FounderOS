@@ -24,7 +24,7 @@ describe('POST /api/webhooks/manychat', () => {
     expect((await res.json()).ok).toBe(true);
 
     const { getDb } = await import('@/lib/data');
-    const found = getDb().social.dmMessages('instagram').find((m) => m.subscriberId === 'wh-1');
+    const found = (await (await getDb()).social.dmMessages('instagram')).find((m) => m.subscriberId === 'wh-1');
     expect(found?.text).toBe('came from manychat');
     expect(found?.source).toBe('manychat');
   });

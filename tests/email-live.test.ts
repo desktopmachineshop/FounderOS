@@ -7,21 +7,21 @@ afterEach(() => db?.close());
 
 describe('syncBeehiivEmail', () => {
   it('snapshots the live Beehiiv count so buildEmailList prefers it', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const ok = await syncBeehiivEmail(db, { today: '2026-06-19', source: async () => 5123 });
     expect(ok).toBe(true);
-    expect(buildEmailList(db).subscribers).toBe(5123);
+    expect((await buildEmailList(db)).subscribers).toBe(5123);
   });
 
   it('is a no-op (no fake number) when Beehiiv yields null', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const ok = await syncBeehiivEmail(db, { today: '2026-06-19', source: async () => null });
     expect(ok).toBe(false);
-    expect(buildEmailList(db).subscribers).toBeNull(); // stays honest-empty (no seed in :memory:)
+    expect((await buildEmailList(db)).subscribers).toBeNull(); // stays honest-empty (no seed in :memory:)
   });
 
   it('is a no-op when the source throws', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const ok = await syncBeehiivEmail(db, {
       today: '2026-06-19',
       source: async () => {

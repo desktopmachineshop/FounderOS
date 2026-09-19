@@ -60,13 +60,33 @@ CREATE TABLE IF NOT EXISTS drv_pairs (
 const PRIMARY_KEYS = parsePrimaryKeys(SCHEMA);
 const PG_URL = process.env.TEST_DATABASE_URL;
 
+/**
+ * This suite needs its own `agent_runs` — a cut-down one, to prove the
+ * rowid-to-seq rewrite — which would collide with the real table that the
+ * parity suite seeds in the same database. Test files run in parallel, so it
+ * gets its own database rather than a shared one.
+ */
+const DRIVER_DB = 'founderos_driver_test';
+const driverUrl = (url: string) => new URL(url).href.replace(/\/[^/?]*(\?|$)/, `/${DRIVER_DB}$1`);
+
+async function ensureDriverDatabase(url: string): Promise<void> {
+  const admin = openPostgres(url, { primaryKeys: PRIMARY_KEYS });
+  try {
+    await admin.exec(`CREATE DATABASE ${DRIVER_DB}`);
+  } catch {
+    // already there
+  } finally {
+    await admin.close();
+  }
+}
+
 const backends: { name: string; open: () => SqlDriver }[] = [
   { name: 'sqlite', open: () => openSqlite(':memory:') },
 ];
 if (PG_URL && isPostgresUrl(PG_URL)) {
   backends.push({
     name: 'postgres',
-    open: () => openPostgres(PG_URL, { primaryKeys: PRIMARY_KEYS }),
+    open: () => openPostgres(driverUrl(PG_URL), { primaryKeys: PRIMARY_KEYS }),
   });
 }
 
@@ -74,6 +94,7 @@ describe.each(backends)('SqlDriver conformance — $name', ({ open }) => {
   let db: SqlDriver;
 
   beforeAll(async () => {
+    if (PG_URL && isPostgresUrl(PG_URL)) await ensureDriverDatabase(PG_URL);
     db = open();
     // Postgres keeps state between runs; start from a known-empty schema.
     for (const table of ['drv_items', 'agent_runs', 'drv_pairs']) {

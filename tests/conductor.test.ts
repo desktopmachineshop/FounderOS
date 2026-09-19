@@ -23,21 +23,21 @@ const routableIds = () => realAgents.filter((a) => a.id !== 'conductor').map((a)
 
 describe('routeConductorMessage (stub)', () => {
   test('@agent-id prefix routes straight to that agent and strips the prefix', async () => {
-    const db = openDb(':memory:');
+    const db = await openDb(':memory:');
     const res = await routeConductorMessage(db, realAgents, '@sales-agent what is pipeline?');
     expect(res.routedTo).toBe('sales-agent');
     expect(res.reply.length).toBeGreaterThan(0);
-    expect(db.agentMessages.byAgent('sales-agent')[0].content).toBe('what is pipeline?');
+    expect((await db.agentMessages.byAgent('sales-agent'))[0].content).toBe('what is pipeline?');
   });
 
   test('@Name matches by humanized name slug too', async () => {
-    const db = openDb(':memory:');
+    const db = await openDb(':memory:');
     const res = await routeConductorMessage(db, realAgents, '@Data-Agent ping');
     expect(res.routedTo).toBe('data-agent');
   });
 
   test('a bare message routes to a valid non-conductor agent and returns a reply', async () => {
-    const db = openDb(':memory:');
+    const db = await openDb(':memory:');
     const res = await routeConductorMessage(db, realAgents, 'how is the pipeline looking?');
     expect(routableIds()).toContain(res.routedTo);
     expect(res.routedTo).not.toBe('conductor');
@@ -45,7 +45,7 @@ describe('routeConductorMessage (stub)', () => {
   });
 
   test('an unknown @name never throws — falls back to routing', async () => {
-    const db = openDb(':memory:');
+    const db = await openDb(':memory:');
     const res = await routeConductorMessage(db, realAgents, '@nobody hello');
     expect(res.routedTo).not.toBe('conductor');
     expect(res.reply.length).toBeGreaterThan(0);

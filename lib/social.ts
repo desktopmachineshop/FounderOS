@@ -77,16 +77,16 @@ function growthFor(snapshots: SocialSnapshot[]): SocialGrowth {
  * no follower count are skipped. Same-day re-sync overwrites. Returns the
  * number of snapshots recorded.
  */
-export function syncSocialSnapshots(
+export async function syncSocialSnapshots(
   db: FounderDb,
   accounts: Record<string, { handle?: string; followers?: number }>,
   today: string,
-): number {
+): Promise<number> {
   let recorded = 0;
   for (const [platform, account] of Object.entries(accounts)) {
     const parsed = SocialPlatformSchema.safeParse(platform);
     if (!parsed.success || typeof account.followers !== 'number') continue;
-    db.social.insertSnapshot({
+    await db.social.insertSnapshot({
       platform: parsed.data,
       capturedAt: today,
       followers: account.followers,
@@ -98,23 +98,25 @@ export function syncSocialSnapshots(
 }
 
 /** Live sync from Alex's Zernio config — called on every dashboard read. */
-export function syncFromZernioConfig(db: FounderDb, today?: string): number {
+export async function syncFromZernioConfig(db: FounderDb, today?: string): Promise<number> {
   return syncSocialSnapshots(db, zernioAccounts(), today ?? new Date().toISOString().slice(0, 10));
 }
 
-export function buildSocialDashboard(db: FounderDb): SocialDashboard {
-  const latest = new Map(db.social.latest().map((s) => [s.platform, s]));
-  const platforms = db.social.accounts().map((account) => {
-    const snapshots = db.social.snapshots(account.platform);
-    return {
-      platform: account.platform,
-      handle: account.handle,
-      url: account.url,
-      followers: latest.get(account.platform)?.followers ?? null,
-      growth: growthFor(snapshots),
-      series: snapshots.slice(-90).map((s) => ({ date: s.capturedAt, followers: s.followers })),
-    };
-  });
+export async function buildSocialDashboard(db: FounderDb): Promise<SocialDashboard> {
+  const latest = new Map((await db.social.latest()).map((s) => [s.platform, s]));
+  const platforms = await Promise.all(
+    (await db.social.accounts()).map(async (account) => {
+      const snapshots = await db.social.snapshots(account.platform);
+      return {
+        platform: account.platform,
+        handle: account.handle,
+        url: account.url,
+        followers: latest.get(account.platform)?.followers ?? null,
+        growth: growthFor(snapshots),
+        series: snapshots.slice(-90).map((s) => ({ date: s.capturedAt, followers: s.followers })),
+      };
+    }),
+  );
   const all = [...latest.values()];
   return SocialDashboardSchema.parse({
     totalFollowers: all.reduce((sum, s) => sum + s.followers, 0),
@@ -124,22 +126,24 @@ export function buildSocialDashboard(db: FounderDb): SocialDashboard {
 }
 
 /** Per-platform DM counts, ordered to match the account list. */
-export function dmsByPlatform(db: FounderDb): SocialDm[] {
-  return db.social.dms();
+export async function dmsByPlatform(db: FounderDb): Promise<SocialDm[]> {
+  return await db.social.dms();
 }
 
 /** Total DMs across every platform (seeded dummy until a real source lands). */
-export function totalDms(db: FounderDb): number {
-  return dmsByPlatform(db).reduce((sum, d) => sum + d.count, 0);
+export async function totalDms(db: FounderDb): Promise<number> {
+  return (await dmsByPlatform(db)).reduce((sum, d) => sum + d.count, 0);
 }
 
 // ── Audience (followers + email) ──────────────────────────────────────────
 
 /** Each audience channel as a GrowthPoint series: one per platform + email. */
-function audienceChannelPoints(db: FounderDb): GrowthPoint[][] {
+async function audienceChannelPoints(db: FounderDb): Promise<GrowthPoint[][]> {
   return [
-    ...db.social.accounts().map((a) => toPoints(db.social.snapshots(a.platform))),
-    db.emailList.snapshots().map((s) => ({ capturedAt: s.capturedAt, value: s.subscribers })),
+    ...(await Promise.all(
+      (await db.social.accounts()).map(async (a) => toPoints(await db.social.snapshots(a.platform))),
+    )),
+    (await db.emailList.snapshots()).map((s) => ({ capturedAt: s.capturedAt, value: s.subscribers })),
   ];
 }
 
@@ -154,11 +158,11 @@ const allTimeDelta = (series: GrowthPoint[]): { current: number; baseline: numbe
  * without a baseline are excluded from both sides so they never distort the
  * figure. Null when no channel qualifies yet.
  */
-export function audienceGrowthPct(db: FounderDb, range: GrowthRange): number | null {
+export async function audienceGrowthPct(db: FounderDb, range: GrowthRange): Promise<number | null> {
   let current = 0;
   let baseline = 0;
   let qualified = 0;
-  for (const series of audienceChannelPoints(db)) {
+  for (const series of (await audienceChannelPoints(db))) {
     const delta = range === 'all' ? allTimeDelta(series) : windowDelta(series, range);
     if (!delta) continue;
     current += delta.current;
@@ -169,47 +173,50 @@ export function audienceGrowthPct(db: FounderDb, range: GrowthRange): number | n
   return ((current - baseline) / baseline) * 100;
 }
 
-export function audienceGrowth(db: FounderDb): SocialGrowth {
-  return {
-    d7: audienceGrowthPct(db, 7),
-    d30: audienceGrowthPct(db, 30),
-    d60: audienceGrowthPct(db, 60),
-    allTime: audienceGrowthPct(db, 'all'),
-  };
+export async function audienceGrowth(db: FounderDb): Promise<SocialGrowth> {
+  const [d7, d30, d60, allTime] = await Promise.all([
+    audienceGrowthPct(db, 7),
+    audienceGrowthPct(db, 30),
+    audienceGrowthPct(db, 60),
+    audienceGrowthPct(db, 'all'),
+  ]);
+  return { d7, d30, d60, allTime };
 }
 
 /** Back-compat alias — the old name for the 30-day audience figure. */
-export function monthlyAudienceGrowthPct(db: FounderDb): number | null {
+export async function monthlyAudienceGrowthPct(db: FounderDb): Promise<number | null> {
   return audienceGrowthPct(db, 30);
 }
 
 /** Current total audience = sum of each channel's latest value. */
-export function audienceTotal(db: FounderDb): number {
-  return audienceChannelPoints(db).reduce((sum, s) => sum + (s.at(-1)?.value ?? 0), 0);
+export async function audienceTotal(db: FounderDb): Promise<number> {
+  return (await audienceChannelPoints(db)).reduce((sum, s) => sum + (s.at(-1)?.value ?? 0), 0);
 }
 
 /** Per-channel + "All audience" series for the pop-out chart (carry-forward). */
-export function audienceSeries(db: FounderDb): { channels: LabelledSeries[]; all: LabelledSeries } {
+export async function audienceSeries(db: FounderDb): Promise<{ channels: LabelledSeries[]; all: LabelledSeries }> {
   const channels: LabelledSeries[] = [
-    ...db.social.accounts().map((a) => ({
-      key: a.platform,
-      label: PLATFORM_LABELS[a.platform],
-      color: PLATFORM_COLORS[a.platform],
-      points: toSeriesPoints(toPoints(db.social.snapshots(a.platform))),
-    })),
+    ...(await Promise.all(
+      (await db.social.accounts()).map(async (a) => ({
+        key: a.platform,
+        label: PLATFORM_LABELS[a.platform],
+        color: PLATFORM_COLORS[a.platform],
+        points: toSeriesPoints(toPoints(await db.social.snapshots(a.platform))),
+      })),
+    )),
     {
       key: 'email',
       label: 'Email List',
       color: EMAIL_COLOR,
-      points: db.emailList.snapshots().map((s) => ({ date: s.capturedAt, value: s.subscribers })),
+      points: (await db.emailList.snapshots()).map((s) => ({ date: s.capturedAt, value: s.subscribers })),
     },
-  ].filter((c) => c.points.length > 0);
+  ].filter(async (c) => (await c).points.length > 0);
 
   const all: LabelledSeries = {
     key: 'all',
     label: 'All audience',
     color: ALL_AUDIENCE_COLOR,
-    points: toSeriesPoints(mergeSeriesSum(audienceChannelPoints(db))),
+    points: toSeriesPoints(mergeSeriesSum((await audienceChannelPoints(db)))),
   };
   return { channels, all };
 }
@@ -217,9 +224,9 @@ export function audienceSeries(db: FounderDb): { channels: LabelledSeries[]; all
 // ── DMs ───────────────────────────────────────────────────────────────────
 
 /** Total DMs per day across platforms (carry-forward sum of DM snapshots). */
-export function dmSeries(db: FounderDb): SeriesPoint[] {
+export async function dmSeries(db: FounderDb): Promise<SeriesPoint[]> {
   const byPlatform = new Map<string, GrowthPoint[]>();
-  for (const s of db.social.dmSnapshots()) {
+  for (const s of await db.social.dmSnapshots()) {
     const list = byPlatform.get(s.platform) ?? [];
     list.push({ capturedAt: s.capturedAt, value: s.count });
     byPlatform.set(s.platform, list);
@@ -227,8 +234,8 @@ export function dmSeries(db: FounderDb): SeriesPoint[] {
   return toSeriesPoints(mergeSeriesSum([...byPlatform.values()]));
 }
 
-export function dmGrowthPct(db: FounderDb, range: GrowthRange): number | null {
-  const series = dmSeries(db).map((p) => ({ capturedAt: p.date, value: p.value }));
+export async function dmGrowthPct(db: FounderDb, range: GrowthRange): Promise<number | null> {
+  const series = (await dmSeries(db)).map((p) => ({ capturedAt: p.date, value: p.value }));
   return range === 'all' ? growthAllTime(series) : growthOver(series, range);
 }
 
@@ -316,20 +323,21 @@ export function postingSeries(endDate: string, days = 90): PostingSeries[] {
   });
 }
 
-export function dmGrowth(db: FounderDb): SocialGrowth {
-  return {
-    d7: dmGrowthPct(db, 7),
-    d30: dmGrowthPct(db, 30),
-    d60: dmGrowthPct(db, 60),
-    allTime: dmGrowthPct(db, 'all'),
-  };
+export async function dmGrowth(db: FounderDb): Promise<SocialGrowth> {
+  const [d7, d30, d60, allTime] = await Promise.all([
+    dmGrowthPct(db, 7),
+    dmGrowthPct(db, 30),
+    dmGrowthPct(db, 60),
+    dmGrowthPct(db, 'all'),
+  ]);
+  return { d7, d30, d60, allTime };
 }
 
-export function platformDetail(db: FounderDb, platform: SocialPlatform): SocialPlatformDetail | null {
+export async function platformDetail(db: FounderDb, platform: SocialPlatform): Promise<SocialPlatformDetail | null> {
   if (!SocialPlatformSchema.safeParse(platform).success) return null;
-  const account = db.social.accounts().find((a) => a.platform === platform);
+  const account = (await db.social.accounts()).find((a) => a.platform === platform);
   if (!account) return null;
-  const snapshots = db.social.snapshots(platform);
+  const snapshots = await db.social.snapshots(platform);
   return SocialPlatformDetailSchema.parse({
     account,
     followers: snapshots.at(-1)?.followers ?? null,
@@ -354,9 +362,9 @@ export type DmThread = {
 /** Group the DM messages for a platform into conversations, newest thread
     first. `unreplied` is true when the last message is inbound (needs a reply).
     Seeded until the ManyChat webhook feeds `social_dm_messages` live. */
-export function dmThreads(db: FounderDb, platform: SocialPlatform = 'instagram'): DmThread[] {
+export async function dmThreads(db: FounderDb, platform: SocialPlatform = 'instagram'): Promise<DmThread[]> {
   const groups = new Map<string, SocialDmMessage[]>();
-  for (const m of db.social.dmMessages(platform)) {
+  for (const m of await db.social.dmMessages(platform)) {
     // dmMessages is newest-first; collect per subscriber.
     const arr = groups.get(m.subscriberId) ?? [];
     arr.push(m);

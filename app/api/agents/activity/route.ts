@@ -8,5 +8,5 @@ export const runtime = 'nodejs'; // better-sqlite3 is native — keep off the ed
 export async function GET(req: Request) {
   const raw = Number(new URL(req.url).searchParams.get('limit'));
   const limit = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 200) : 50;
-  return NextResponse.json({ events: recentActivity(getDb(), limit) });
+  return NextResponse.json({ events: await recentActivity((await getDb()), limit) });
 }

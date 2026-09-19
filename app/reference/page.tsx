@@ -3,9 +3,9 @@ import { PageHeader } from '@/components/PageHeader';
 
 export const dynamic = 'force-dynamic';
 
-export default function ReferencePage() {
-  const db = getDb();
-  const domains = db.domains.all();
+export default async function ReferencePage() {
+  const db = (await getDb());
+  const domains = await db.domains.all();
 
   return (
     <div>

@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { openDriver, parsePrimaryKeys, type SqlDriver } from '@/lib/sql';
 import { isValidCron } from '@/lib/cron';
 import {
   AgentCronSchema,
@@ -320,36 +320,32 @@ CREATE TABLE IF NOT EXISTS skills (
 `;
 
 /** Databases created before the hierarchy build lack these columns. */
-function migrateAgentsTable(db: InstanceType<typeof Database>): void {
-  const columns = new Set(
-    (db.pragma('table_info(agents)') as { name: string }[]).map((c) => c.name),
-  );
-  if (!columns.has('parent_id')) db.exec('ALTER TABLE agents ADD COLUMN parent_id TEXT');
-  if (!columns.has('instance')) db.exec("ALTER TABLE agents ADD COLUMN instance TEXT NOT NULL DEFAULT 'builtin'");
+async function migrateAgentsTable(db: SqlDriver): Promise<void> {
+  const columns = await db.columns('agents');
+  if (!columns.has('parent_id')) await db.exec('ALTER TABLE agents ADD COLUMN parent_id TEXT');
+  if (!columns.has('instance')) await db.exec("ALTER TABLE agents ADD COLUMN instance TEXT NOT NULL DEFAULT 'builtin'");
 }
 
 /** Databases created before the funnel-space build lack these columns. */
-function migrateFunnelContactsTable(db: InstanceType<typeof Database>): void {
-  const columns = new Set(
-    (db.pragma('table_info(funnel_contacts)') as { name: string }[]).map((c) => c.name),
-  );
-  if (!columns.has('relationship')) db.exec("ALTER TABLE funnel_contacts ADD COLUMN relationship TEXT NOT NULL DEFAULT 'warm'");
-  if (!columns.has('likelihood')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN likelihood INTEGER NOT NULL DEFAULT 50');
-  if (!columns.has('email')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN email TEXT');
-  if (!columns.has('phone')) db.exec('ALTER TABLE funnel_contacts ADD COLUMN phone TEXT');
+async function migrateFunnelContactsTable(db: SqlDriver): Promise<void> {
+  const columns = await db.columns('funnel_contacts');
+  if (!columns.has('relationship')) await db.exec("ALTER TABLE funnel_contacts ADD COLUMN relationship TEXT NOT NULL DEFAULT 'warm'");
+  if (!columns.has('likelihood')) await db.exec('ALTER TABLE funnel_contacts ADD COLUMN likelihood INTEGER NOT NULL DEFAULT 50');
+  if (!columns.has('email')) await db.exec('ALTER TABLE funnel_contacts ADD COLUMN email TEXT');
+  if (!columns.has('phone')) await db.exec('ALTER TABLE funnel_contacts ADD COLUMN phone TEXT');
   // dossier identity (Round 15) — the human behind the deal
   for (const col of ['person', 'company', 'role', 'linkedin']) {
-    if (!columns.has(col)) db.exec(`ALTER TABLE funnel_contacts ADD COLUMN ${col} TEXT`);
+    if (!columns.has(col)) await db.exec(`ALTER TABLE funnel_contacts ADD COLUMN ${col} TEXT`);
   }
 }
 
 // Skills gained a `markdown` (SKILL.md) column after first ship. Add it, and
 // clear the stale rows so the re-seed backfills each skill's doc.
-function migrateSkillsTable(db: InstanceType<typeof Database>): void {
-  const columns = new Set((db.pragma('table_info(skills)') as { name: string }[]).map((c) => c.name));
+async function migrateSkillsTable(db: SqlDriver): Promise<void> {
+  const columns = await db.columns('skills');
   if (columns.size > 0 && !columns.has('markdown')) {
-    db.exec("ALTER TABLE skills ADD COLUMN markdown TEXT NOT NULL DEFAULT ''");
-    db.exec('DELETE FROM skills');
+    await db.exec("ALTER TABLE skills ADD COLUMN markdown TEXT NOT NULL DEFAULT ''");
+    await db.exec('DELETE FROM skills');
   }
 }
 
@@ -385,195 +381,201 @@ function rowToAgent(row: AgentRow): Agent {
 
 /** lead_magnets gained `origin` when the operator started creating them from the
  *  OS; older databases predate the column. */
-function migrateLeadMagnetsTable(db: InstanceType<typeof Database>): void {
-  const columns = new Set(
-    (db.prepare('PRAGMA table_info(lead_magnets)').all() as { name: string }[]).map((c) => c.name),
-  );
-  if (!columns.has('origin')) db.exec("ALTER TABLE lead_magnets ADD COLUMN origin TEXT NOT NULL DEFAULT 'seed'");
+async function migrateLeadMagnetsTable(db: SqlDriver): Promise<void> {
+  const columns = await db.columns('lead_magnets');
+  if (!columns.has('origin')) await db.exec("ALTER TABLE lead_magnets ADD COLUMN origin TEXT NOT NULL DEFAULT 'seed'");
 }
 
-export function openDb(path: string) {
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.exec(DDL);
-  migrateAgentsTable(db);
-  migrateLeadMagnetsTable(db);
-  migrateFunnelContactsTable(db);
-  migrateSkillsTable(db);
+/**
+ * Primary keys, read off the DDL above. The Postgres driver needs them to turn
+ * `INSERT OR REPLACE` into an upsert; deriving them here means the schema stays
+ * the single source of truth.
+ */
+export const PRIMARY_KEYS = parsePrimaryKeys(DDL);
+
+export { DDL };
+
+/**
+ * Open the store and bring the schema up to date.
+ *
+ * `target` is either a SQLite path (a file, or `:memory:`) or a `postgres://`
+ * URL. The repository methods below are identical either way — that is what
+ * lets the workstation and the always-on cloud instance share one system of
+ * record.
+ */
+export async function openDb(target: string) {
+  const db = openDriver(target, PRIMARY_KEYS);
+  await db.exec(DDL);
+  await migrateAgentsTable(db);
+  await migrateLeadMagnetsTable(db);
+  await migrateFunnelContactsTable(db);
+  await migrateSkillsTable(db);
 
   const departments = {
-    all(): Department[] {
-      return db
-        .prepare('SELECT * FROM departments ORDER BY "order"')
-        .all()
-        .map((r) => DepartmentSchema.parse(r));
+    async all(): Promise<Department[]> {
+      const rows = await db.all('SELECT * FROM departments ORDER BY "order"');
+      return rows.map((r) => DepartmentSchema.parse(r));
     },
-    insert(d: Department): void {
-      db.prepare(
+    async insert(d: Department): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO departments (id, name, slug, tagline, color, "order") VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(d.id, d.name, d.slug, d.tagline, d.color, d.order);
+        [d.id, d.name, d.slug, d.tagline, d.color, d.order],
+      );
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM departments WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM departments WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
   const agents = {
-    all(): Agent[] {
-      return (db.prepare('SELECT * FROM agents ORDER BY tier, name').all() as AgentRow[]).map(rowToAgent);
+    async all(): Promise<Agent[]> {
+      const rows = await db.all<AgentRow>('SELECT * FROM agents ORDER BY tier, name');
+      return rows.map(rowToAgent);
     },
-    byDepartment(departmentId: string): Agent[] {
-      return (
-        db
-          .prepare('SELECT * FROM agents WHERE department_id = ? ORDER BY tier, name')
-          .all(departmentId) as AgentRow[]
-      ).map(rowToAgent);
+    async byDepartment(departmentId: string): Promise<Agent[]> {
+      const rows = await db.all<AgentRow>(
+        'SELECT * FROM agents WHERE department_id = ? ORDER BY tier, name',
+        [departmentId],
+      );
+      return rows.map(rowToAgent);
     },
-    insert(a: Agent): void {
-      db.prepare(
+    async insert(a: Agent): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO agents (id, department_id, name, role, status, tier, description, model, tools, parent_id, instance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(
-        a.id, a.departmentId, a.name, a.role, a.status, a.tier, a.description, a.model,
-        JSON.stringify(a.tools), a.parentId, a.instance,
+        [
+          a.id, a.departmentId, a.name, a.role, a.status, a.tier, a.description, a.model,
+          JSON.stringify(a.tools), a.parentId, a.instance,
+        ],
       );
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM agents WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM agents WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
   const tools = {
-    all(): Tool[] {
-      return db
-        .prepare('SELECT * FROM tools ORDER BY category, name')
-        .all()
-        .map((r) => ToolSchema.parse(r));
+    async all(): Promise<Tool[]> {
+      const rows = await db.all('SELECT * FROM tools ORDER BY category, name');
+      return rows.map((r) => ToolSchema.parse(r));
     },
-    insert(t: Tool): void {
-      db.prepare(
+    async insert(t: Tool): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO tools (id, name, category, status, color, description) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(t.id, t.name, t.category, t.status, t.color, t.description);
+        [t.id, t.name, t.category, t.status, t.color, t.description],
+      );
     },
   };
 
   const roadmap = {
-    all(): RoadmapItem[] {
-      return db
-        .prepare('SELECT * FROM roadmap_items ORDER BY quarter, title')
-        .all()
-        .map((r: any) =>
-          RoadmapItemSchema.parse({
-            id: r.id,
-            title: r.title,
-            quarter: r.quarter,
-            status: r.status,
-            departmentId: r.department_id,
-            description: r.description,
-          }),
-        );
+    async all(): Promise<RoadmapItem[]> {
+      const rows = await db.all<any>('SELECT * FROM roadmap_items ORDER BY quarter, title');
+      return rows.map((r) =>
+        RoadmapItemSchema.parse({
+          id: r.id,
+          title: r.title,
+          quarter: r.quarter,
+          status: r.status,
+          departmentId: r.department_id,
+          description: r.description,
+        }),
+      );
     },
-    insert(item: RoadmapItem): void {
-      db.prepare(
+    async insert(item: RoadmapItem): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO roadmap_items (id, title, quarter, status, department_id, description) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(item.id, item.title, item.quarter, item.status, item.departmentId, item.description);
+        [item.id, item.title, item.quarter, item.status, item.departmentId, item.description],
+      );
     },
   };
 
   const metrics = {
-    all(): Metric[] {
-      return db
-        .prepare('SELECT * FROM metrics ORDER BY label')
-        .all()
-        .map((r) => MetricSchema.parse(r));
+    async all(): Promise<Metric[]> {
+      const rows = await db.all('SELECT * FROM metrics ORDER BY label');
+      return rows.map((r) => MetricSchema.parse(r));
     },
-    insert(m: Metric): void {
-      db.prepare(
+    async insert(m: Metric): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO metrics (id, key, label, value, unit, delta, period) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ).run(m.id, m.key, m.label, m.value, m.unit, m.delta, m.period);
+        [m.id, m.key, m.label, m.value, m.unit, m.delta, m.period],
+      );
     },
   };
 
   const domains = {
-    all(): Domain[] {
-      return db
-        .prepare('SELECT * FROM domains ORDER BY number')
-        .all()
-        .map((r: any) => DomainSchema.parse({ ...r, items: JSON.parse(r.items) }));
+    async all(): Promise<Domain[]> {
+      const rows = await db.all<any>('SELECT * FROM domains ORDER BY number');
+      return rows.map((r) => DomainSchema.parse({ ...r, items: JSON.parse(r.items) }));
     },
-    insert(d: Domain): void {
-      db.prepare('INSERT OR REPLACE INTO domains (id, number, title, color, items) VALUES (?, ?, ?, ?, ?)').run(
+    async insert(d: Domain): Promise<void> {
+      await db.run('INSERT OR REPLACE INTO domains (id, number, title, color, items) VALUES (?, ?, ?, ?, ?)', [
         d.id,
         d.number,
         d.title,
         d.color,
         JSON.stringify(d.items),
-      );
+      ]);
     },
   };
 
   const personas = {
-    all(): Persona[] {
-      return db
-        .prepare('SELECT * FROM personas ORDER BY ord')
-        .all()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((r: any) =>
-          PersonaSchema.parse({
-            id: r.id,
-            order: r.ord,
-            name: r.name,
-            archetype: r.archetype,
-            tagline: r.tagline,
-            summary: r.summary,
-            accent: r.accent,
-            northStar: r.north_star,
-            pillars: JSON.parse(r.pillars),
-            connectors: JSON.parse(r.connectors),
-            metrics: JSON.parse(r.metrics),
-            brainUse: r.brain_use,
-            signaturePlay: r.signature_play,
-          }),
-        );
+    async all(): Promise<Persona[]> {
+      const rows = await db.all<any>('SELECT * FROM personas ORDER BY ord');
+      return rows.map((r) =>
+        PersonaSchema.parse({
+          id: r.id,
+          order: r.ord,
+          name: r.name,
+          archetype: r.archetype,
+          tagline: r.tagline,
+          summary: r.summary,
+          accent: r.accent,
+          northStar: r.north_star,
+          pillars: JSON.parse(r.pillars),
+          connectors: JSON.parse(r.connectors),
+          metrics: JSON.parse(r.metrics),
+          brainUse: r.brain_use,
+          signaturePlay: r.signature_play,
+        }),
+      );
     },
-    insert(p: Persona): void {
-      db.prepare(
+    async insert(p: Persona): Promise<void> {
+      await db.run(
         `INSERT OR REPLACE INTO personas
           (id, ord, name, archetype, tagline, summary, accent, north_star, pillars, connectors, metrics, brain_use, signature_play)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        p.id,
-        p.order,
-        p.name,
-        p.archetype,
-        p.tagline,
-        p.summary,
-        p.accent,
-        p.northStar,
-        JSON.stringify(p.pillars),
-        JSON.stringify(p.connectors),
-        JSON.stringify(p.metrics),
-        p.brainUse,
-        p.signaturePlay,
+        [
+          p.id,
+          p.order,
+          p.name,
+          p.archetype,
+          p.tagline,
+          p.summary,
+          p.accent,
+          p.northStar,
+          JSON.stringify(p.pillars),
+          JSON.stringify(p.connectors),
+          JSON.stringify(p.metrics),
+          p.brainUse,
+          p.signaturePlay,
+        ],
       );
     },
   };
 
   const phases = {
-    all(): Phase[] {
-      return db
-        .prepare('SELECT * FROM phases ORDER BY number')
-        .all()
-        .map((r: any) => PhaseSchema.parse({ ...r, items: JSON.parse(r.items) }));
+    async all(): Promise<Phase[]> {
+      const rows = await db.all<any>('SELECT * FROM phases ORDER BY number');
+      return rows.map((r) => PhaseSchema.parse({ ...r, items: JSON.parse(r.items) }));
     },
-    insert(p: Phase): void {
-      db.prepare('INSERT OR REPLACE INTO phases (id, number, title, items) VALUES (?, ?, ?, ?)').run(
+    async insert(p: Phase): Promise<void> {
+      await db.run('INSERT OR REPLACE INTO phases (id, number, title, items) VALUES (?, ?, ?, ?)', [
         p.id,
         p.number,
         p.title,
         JSON.stringify(p.items),
-      );
+      ]);
     },
   };
 
@@ -588,22 +590,23 @@ export function openDb(path: string) {
     });
 
   const agentRuns = {
-    byAgent(agentId: string): AgentRun[] {
-      return db
-        .prepare('SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY started_at DESC')
-        .all(agentId)
-        .map(rowToRun);
+    async byAgent(agentId: string): Promise<AgentRun[]> {
+      const rows = await db.all('SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY started_at DESC', [
+        agentId,
+      ]);
+      return rows.map(rowToRun);
     },
-    recent(limit: number): AgentRun[] {
-      return db
-        .prepare('SELECT * FROM agent_runs ORDER BY started_at DESC, rowid DESC LIMIT ?')
-        .all(limit)
-        .map(rowToRun);
+    async recent(limit: number): Promise<AgentRun[]> {
+      const rows = await db.all('SELECT * FROM agent_runs ORDER BY started_at DESC, rowid DESC LIMIT ?', [
+        limit,
+      ]);
+      return rows.map(rowToRun);
     },
-    insert(run: AgentRun): void {
-      db.prepare(
+    async insert(run: AgentRun): Promise<void> {
+      await db.run(
         'INSERT OR REPLACE INTO agent_runs (id, agent_id, started_at, finished_at, ok, summary) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(run.id, run.agentId, run.startedAt, run.finishedAt, run.ok ? 1 : 0, run.summary);
+        [run.id, run.agentId, run.startedAt, run.finishedAt, run.ok ? 1 : 0, run.summary],
+      );
     },
   };
 
@@ -618,24 +621,26 @@ export function openDb(path: string) {
     });
 
   const agentMessages = {
-    insert(m: AgentMessage): void {
+    async insert(m: AgentMessage): Promise<void> {
       const parsed = AgentMessageSchema.parse(m);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO agent_messages (id, agent_id, role, content, tool_calls, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(parsed.id, parsed.agentId, parsed.role, parsed.content, JSON.stringify(parsed.toolCalls), parsed.createdAt);
+        [parsed.id, parsed.agentId, parsed.role, parsed.content, JSON.stringify(parsed.toolCalls), parsed.createdAt],
+      );
     },
     /** Full conversation for one agent, oldest → newest (ready to replay). */
-    byAgent(agentId: string): AgentMessage[] {
-      return db
-        .prepare('SELECT * FROM agent_messages WHERE agent_id = ? ORDER BY created_at ASC, rowid ASC')
-        .all(agentId)
-        .map(rowToMessage);
+    async byAgent(agentId: string): Promise<AgentMessage[]> {
+      const rows = await db.all(
+        'SELECT * FROM agent_messages WHERE agent_id = ? ORDER BY created_at ASC, rowid ASC',
+        [agentId],
+      );
+      return rows.map(rowToMessage);
     },
-    recent(limit: number): AgentMessage[] {
-      return db
-        .prepare('SELECT * FROM agent_messages ORDER BY created_at DESC, rowid DESC LIMIT ?')
-        .all(limit)
-        .map(rowToMessage);
+    async recent(limit: number): Promise<AgentMessage[]> {
+      const rows = await db.all('SELECT * FROM agent_messages ORDER BY created_at DESC, rowid DESC LIMIT ?', [
+        limit,
+      ]);
+      return rows.map(rowToMessage);
     },
   };
 
@@ -650,27 +655,34 @@ export function openDb(path: string) {
     });
 
   const broadcasts = {
-    insert(b: { id: string; message: string; createdAt: string }): void {
-      db.prepare('INSERT OR REPLACE INTO broadcasts (id, message, created_at) VALUES (?, ?, ?)').run(
+    async insert(b: { id: string; message: string; createdAt: string }): Promise<void> {
+      await db.run('INSERT OR REPLACE INTO broadcasts (id, message, created_at) VALUES (?, ?, ?)', [
         b.id, b.message, b.createdAt,
+      ]);
+    },
+    async insertReply(r: BroadcastReply): Promise<void> {
+      await db.run(
+        'INSERT OR REPLACE INTO broadcast_replies (id, broadcast_id, agent_id, ok, reply, finished_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [r.id, r.broadcastId, r.agentId, r.ok ? 1 : 0, r.reply, r.finishedAt],
       );
     },
-    insertReply(r: BroadcastReply): void {
-      db.prepare(
-        'INSERT OR REPLACE INTO broadcast_replies (id, broadcast_id, agent_id, ok, reply, finished_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(r.id, r.broadcastId, r.agentId, r.ok ? 1 : 0, r.reply, r.finishedAt);
-    },
-    recent(limit: number): Broadcast[] {
-      const rows = db
-        .prepare('SELECT * FROM broadcasts ORDER BY created_at DESC, rowid DESC LIMIT ?')
-        .all(limit) as { id: string; message: string; created_at: string }[];
-      const replyStmt = db.prepare('SELECT * FROM broadcast_replies WHERE broadcast_id = ? ORDER BY agent_id');
-      return rows.map((b) =>
-        BroadcastSchema.parse({
-          id: b.id,
-          message: b.message,
-          createdAt: b.created_at,
-          replies: replyStmt.all(b.id).map(rowToReply),
+    async recent(limit: number): Promise<Broadcast[]> {
+      const rows = await db.all<{ id: string; message: string; created_at: string }>(
+        'SELECT * FROM broadcasts ORDER BY created_at DESC, rowid DESC LIMIT ?',
+        [limit],
+      );
+      return Promise.all(
+        rows.map(async (b) => {
+          const replies = await db.all(
+            'SELECT * FROM broadcast_replies WHERE broadcast_id = ? ORDER BY agent_id',
+            [b.id],
+          );
+          return BroadcastSchema.parse({
+            id: b.id,
+            message: b.message,
+            createdAt: b.created_at,
+            replies: replies.map(rowToReply),
+          });
         }),
       );
     },
@@ -683,27 +695,30 @@ export function openDb(path: string) {
     });
 
   const agentTasks = {
-    insert(t: AgentTask): void {
+    async insert(t: AgentTask): Promise<void> {
       AgentTaskSchema.parse(t);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO agent_tasks (id, agent_id, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(t.id, t.agentId, t.title, t.status, t.createdAt, t.updatedAt);
+        [t.id, t.agentId, t.title, t.status, t.createdAt, t.updatedAt],
+      );
     },
-    byAgent(agentId: string): AgentTask[] {
-      return db
-        .prepare('SELECT * FROM agent_tasks WHERE agent_id = ? ORDER BY created_at DESC, rowid DESC')
-        .all(agentId)
-        .map(rowToTask);
+    async byAgent(agentId: string): Promise<AgentTask[]> {
+      const rows = await db.all(
+        'SELECT * FROM agent_tasks WHERE agent_id = ? ORDER BY created_at DESC, rowid DESC',
+        [agentId],
+      );
+      return rows.map(rowToTask);
     },
-    all(): AgentTask[] {
-      return db.prepare('SELECT * FROM agent_tasks ORDER BY created_at DESC, rowid DESC').all().map(rowToTask);
+    async all(): Promise<AgentTask[]> {
+      const rows = await db.all('SELECT * FROM agent_tasks ORDER BY created_at DESC, rowid DESC');
+      return rows.map(rowToTask);
     },
-    setStatus(id: string, status: AgentTask['status'], updatedAt: string): void {
+    async setStatus(id: string, status: AgentTask['status'], updatedAt: string): Promise<void> {
       AgentTaskSchema.shape.status.parse(status);
-      db.prepare('UPDATE agent_tasks SET status = ?, updated_at = ? WHERE id = ?').run(status, updatedAt, id);
+      await db.run('UPDATE agent_tasks SET status = ?, updated_at = ? WHERE id = ?', [status, updatedAt, id]);
     },
-    remove(id: string): void {
-      db.prepare('DELETE FROM agent_tasks WHERE id = ?').run(id);
+    async remove(id: string): Promise<void> {
+      await db.run('DELETE FROM agent_tasks WHERE id = ?', [id]);
     },
   };
 
@@ -714,49 +729,51 @@ export function openDb(path: string) {
     });
 
   const agentCrons = {
-    insert(c: AgentCron): void {
+    async insert(c: AgentCron): Promise<void> {
       AgentCronSchema.parse(c);
       if (!isValidCron(c.schedule)) throw new Error(`invalid cron schedule: ${c.schedule}`);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO agent_crons (id, agent_id, schedule, description, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(c.id, c.agentId, c.schedule, c.description, c.enabled ? 1 : 0, c.createdAt);
+        [c.id, c.agentId, c.schedule, c.description, c.enabled ? 1 : 0, c.createdAt],
+      );
     },
-    byAgent(agentId: string): AgentCron[] {
-      return db
-        .prepare('SELECT * FROM agent_crons WHERE agent_id = ? ORDER BY created_at DESC, rowid DESC')
-        .all(agentId)
-        .map(rowToCron);
+    async byAgent(agentId: string): Promise<AgentCron[]> {
+      const rows = await db.all(
+        'SELECT * FROM agent_crons WHERE agent_id = ? ORDER BY created_at DESC, rowid DESC',
+        [agentId],
+      );
+      return rows.map(rowToCron);
     },
-    all(): AgentCron[] {
-      return db.prepare('SELECT * FROM agent_crons ORDER BY created_at DESC, rowid DESC').all().map(rowToCron);
+    async all(): Promise<AgentCron[]> {
+      const rows = await db.all('SELECT * FROM agent_crons ORDER BY created_at DESC, rowid DESC');
+      return rows.map(rowToCron);
     },
-    setEnabled(id: string, enabled: boolean): void {
-      db.prepare('UPDATE agent_crons SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+    async setEnabled(id: string, enabled: boolean): Promise<void> {
+      await db.run('UPDATE agent_crons SET enabled = ? WHERE id = ?', [enabled ? 1 : 0, id]);
     },
-    remove(id: string): void {
-      db.prepare('DELETE FROM agent_crons WHERE id = ?').run(id);
+    async remove(id: string): Promise<void> {
+      await db.run('DELETE FROM agent_crons WHERE id = ?', [id]);
     },
   };
 
   const contactTags = {
-    upsert(t: ContactTag): void {
+    async upsert(t: ContactTag): Promise<void> {
       ContactTagSchema.parse(t);
-      db.prepare(
+      await db.run(
         'INSERT INTO contact_tags (person, channel, tag, tier) VALUES (?, ?, ?, ?) ON CONFLICT(person, channel) DO UPDATE SET tag = excluded.tag, tier = excluded.tier',
-      ).run(t.person, t.channel, t.tag, t.tier);
-    },
-    all(): ContactTag[] {
-      return (db.prepare('SELECT * FROM contact_tags ORDER BY tier, person').all() as ContactTag[]).map(
-        (r) => ContactTagSchema.parse(r),
+        [t.person, t.channel, t.tag, t.tier],
       );
     },
-    byTier(tier: number): ContactTag[] {
-      return (
-        db.prepare('SELECT * FROM contact_tags WHERE tier = ? ORDER BY person').all(tier) as ContactTag[]
-      ).map((r) => ContactTagSchema.parse(r));
+    async all(): Promise<ContactTag[]> {
+      const rows = await db.all('SELECT * FROM contact_tags ORDER BY tier, person');
+      return rows.map((r) => ContactTagSchema.parse(r));
     },
-    remove(person: string, channel: string): void {
-      db.prepare('DELETE FROM contact_tags WHERE person = ? AND channel = ?').run(person, channel);
+    async byTier(tier: number): Promise<ContactTag[]> {
+      const rows = await db.all('SELECT * FROM contact_tags WHERE tier = ? ORDER BY person', [tier]);
+      return rows.map((r) => ContactTagSchema.parse(r));
+    },
+    async remove(person: string, channel: string): Promise<void> {
+      await db.run('DELETE FROM contact_tags WHERE person = ? AND channel = ?', [person, channel]);
     },
   };
 
@@ -769,115 +786,115 @@ export function openDb(path: string) {
     });
 
   const social = {
-    upsertAccount(a: SocialAccount): void {
+    async upsertAccount(a: SocialAccount): Promise<void> {
       SocialAccountSchema.parse(a);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO social_accounts (platform, handle, url, "order") VALUES (?, ?, ?, ?)',
-      ).run(a.platform, a.handle, a.url, a.order);
+        [a.platform, a.handle, a.url, a.order],
+      );
     },
-    accounts(): SocialAccount[] {
-      return db
-        .prepare('SELECT * FROM social_accounts ORDER BY "order"')
-        .all()
-        .map((r) => SocialAccountSchema.parse(r));
+    async accounts(): Promise<SocialAccount[]> {
+      const rows = await db.all('SELECT * FROM social_accounts ORDER BY "order"');
+      return rows.map((r) => SocialAccountSchema.parse(r));
     },
-    insertSnapshot(s: SocialSnapshot): void {
+    async insertSnapshot(s: SocialSnapshot): Promise<void> {
       SocialSnapshotSchema.parse(s);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO social_snapshots (platform, captured_at, followers, source) VALUES (?, ?, ?, ?)',
-      ).run(s.platform, s.capturedAt, s.followers, s.source);
+        [s.platform, s.capturedAt, s.followers, s.source],
+      );
     },
-    snapshots(platform: SocialPlatform): SocialSnapshot[] {
-      return db
-        .prepare('SELECT * FROM social_snapshots WHERE platform = ? ORDER BY captured_at')
-        .all(platform)
-        .map(rowToSnapshot);
+    async snapshots(platform: SocialPlatform): Promise<SocialSnapshot[]> {
+      const rows = await db.all('SELECT * FROM social_snapshots WHERE platform = ? ORDER BY captured_at', [
+        platform,
+      ]);
+      return rows.map(rowToSnapshot);
     },
-    latest(): SocialSnapshot[] {
-      return db
-        .prepare(
-          `SELECT * FROM social_snapshots s
+    async latest(): Promise<SocialSnapshot[]> {
+      const rows = await db.all(
+        `SELECT * FROM social_snapshots s
            WHERE captured_at = (SELECT MAX(captured_at) FROM social_snapshots WHERE platform = s.platform)
            ORDER BY platform`,
-        )
-        .all()
-        .map(rowToSnapshot);
+      );
+      return rows.map(rowToSnapshot);
     },
-    upsertDm(d: SocialDm): void {
+    async upsertDm(d: SocialDm): Promise<void> {
       SocialDmSchema.parse(d);
-      db.prepare(
-        'INSERT OR REPLACE INTO social_dms (platform, count, updated_at) VALUES (?, ?, ?)',
-      ).run(d.platform, d.count, d.updatedAt);
+      await db.run('INSERT OR REPLACE INTO social_dms (platform, count, updated_at) VALUES (?, ?, ?)', [
+        d.platform, d.count, d.updatedAt,
+      ]);
     },
-    dms(): SocialDm[] {
-      return db
-        .prepare(
-          `SELECT d.platform, d.count, d.updated_at AS updatedAt FROM social_dms d
+    async dms(): Promise<SocialDm[]> {
+      const rows = await db.all(
+        `SELECT d.platform, d.count, d.updated_at AS "updatedAt" FROM social_dms d
            LEFT JOIN social_accounts a ON a.platform = d.platform
            ORDER BY a."order"`,
-        )
-        .all()
-        .map((r) => SocialDmSchema.parse(r));
+      );
+      return rows.map((r) => SocialDmSchema.parse(r));
     },
-    insertDmSnapshot(s: SocialDmSnapshot): void {
+    async insertDmSnapshot(s: SocialDmSnapshot): Promise<void> {
       SocialDmSnapshotSchema.parse(s);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO social_dm_snapshots (platform, captured_at, count, source) VALUES (?, ?, ?, ?)',
-      ).run(s.platform, s.capturedAt, s.count, s.source);
+        [s.platform, s.capturedAt, s.count, s.source],
+      );
     },
-    dmSnapshots(platform?: SocialPlatform): SocialDmSnapshot[] {
+    async dmSnapshots(platform?: SocialPlatform): Promise<SocialDmSnapshot[]> {
       const rows = platform
-        ? db
-            .prepare('SELECT platform, captured_at AS capturedAt, count, source FROM social_dm_snapshots WHERE platform = ? ORDER BY captured_at')
-            .all(platform)
-        : db
-            .prepare('SELECT platform, captured_at AS capturedAt, count, source FROM social_dm_snapshots ORDER BY platform, captured_at')
-            .all();
+        ? await db.all(
+            'SELECT platform, captured_at AS "capturedAt", count, source FROM social_dm_snapshots WHERE platform = ? ORDER BY captured_at',
+            [platform],
+          )
+        : await db.all(
+            'SELECT platform, captured_at AS "capturedAt", count, source FROM social_dm_snapshots ORDER BY platform, captured_at',
+          );
       return rows.map((r) => SocialDmSnapshotSchema.parse(r));
     },
     // Individual DM messages (the inbox). Fed live by POST /api/webhooks/manychat;
     // seeded until then. Upsert by id so replayed webhooks don't duplicate.
-    upsertDmMessage(m: SocialDmMessage): void {
+    async upsertDmMessage(m: SocialDmMessage): Promise<void> {
       SocialDmMessageSchema.parse(m);
-      db.prepare(
+      await db.run(
         `INSERT OR REPLACE INTO social_dm_messages
            (id, platform, subscriber_id, name, handle, text, direction, tag, ts, source)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(m.id, m.platform, m.subscriberId, m.name, m.handle, m.text, m.direction, m.tag, m.ts, m.source);
+        [m.id, m.platform, m.subscriberId, m.name, m.handle, m.text, m.direction, m.tag, m.ts, m.source],
+      );
     },
-    dmMessages(platform?: SocialPlatform): SocialDmMessage[] {
+    async dmMessages(platform?: SocialPlatform): Promise<SocialDmMessage[]> {
       const cols =
-        'id, platform, subscriber_id AS subscriberId, name, handle, text, direction, tag, ts, source';
+        'id, platform, subscriber_id AS "subscriberId", name, handle, text, direction, tag, ts, source';
       const rows = platform
-        ? db.prepare(`SELECT ${cols} FROM social_dm_messages WHERE platform = ? ORDER BY ts DESC`).all(platform)
-        : db.prepare(`SELECT ${cols} FROM social_dm_messages ORDER BY ts DESC`).all();
+        ? await db.all(`SELECT ${cols} FROM social_dm_messages WHERE platform = ? ORDER BY ts DESC`, [platform])
+        : await db.all(`SELECT ${cols} FROM social_dm_messages ORDER BY ts DESC`);
       return rows.map((r) => SocialDmMessageSchema.parse(r));
     },
   };
 
   const emailList = {
-    insertSnapshot(s: EmailListSnapshot): void {
+    async insertSnapshot(s: EmailListSnapshot): Promise<void> {
       EmailListSnapshotSchema.parse(s);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO email_list_snapshots (captured_at, subscribers, source) VALUES (?, ?, ?)',
-      ).run(s.capturedAt, s.subscribers, s.source);
+        [s.capturedAt, s.subscribers, s.source],
+      );
     },
     // Drop seed-sourced rows so a re-seed is authoritative — the real Beehiiv
     // baseline replaces any retired dummy history. Live-synced snapshots
     // (source 'beehiiv') are preserved.
-    deleteSeeded(): void {
-      db.prepare("DELETE FROM email_list_snapshots WHERE source LIKE 'seed%'").run();
+    async deleteSeeded(): Promise<void> {
+      await db.run("DELETE FROM email_list_snapshots WHERE source LIKE 'seed%'");
     },
-    snapshots(): EmailListSnapshot[] {
-      return db
-        .prepare('SELECT captured_at AS capturedAt, subscribers, source FROM email_list_snapshots ORDER BY captured_at')
-        .all()
-        .map((r) => EmailListSnapshotSchema.parse(r));
+    async snapshots(): Promise<EmailListSnapshot[]> {
+      const rows = await db.all(
+        'SELECT captured_at AS "capturedAt", subscribers, source FROM email_list_snapshots ORDER BY captured_at',
+      );
+      return rows.map((r) => EmailListSnapshotSchema.parse(r));
     },
-    latest(): EmailListSnapshot | null {
-      const row = db
-        .prepare('SELECT captured_at AS capturedAt, subscribers, source FROM email_list_snapshots ORDER BY captured_at DESC LIMIT 1')
-        .get();
+    async latest(): Promise<EmailListSnapshot | null> {
+      const row = await db.get(
+        'SELECT captured_at AS "capturedAt", subscribers, source FROM email_list_snapshots ORDER BY captured_at DESC LIMIT 1',
+      );
       return row ? EmailListSnapshotSchema.parse(row) : null;
     },
   };
@@ -902,83 +919,77 @@ export function openDb(path: string) {
     });
 
   const socialPosts = {
-    enqueue(p: SocialPost): void {
+    async enqueue(p: SocialPost): Promise<void> {
       SocialPostSchema.parse(p);
-      db.prepare(
+      await db.run(
         `INSERT OR REPLACE INTO social_posts (id, caption, media_url, platforms, status, scheduled_for, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ).run(p.id, p.caption, p.mediaUrl, JSON.stringify(p.platforms), p.status, p.scheduledFor, p.createdAt);
+        [p.id, p.caption, p.mediaUrl, JSON.stringify(p.platforms), p.status, p.scheduledFor, p.createdAt],
+      );
     },
-    all(): SocialPost[] {
-      return db
-        .prepare('SELECT * FROM social_posts ORDER BY created_at DESC')
-        .all()
-        .map((r) => rowToPost(r as Parameters<typeof rowToPost>[0]));
+    async all(): Promise<SocialPost[]> {
+      const rows = await db.all('SELECT * FROM social_posts ORDER BY created_at DESC');
+      return rows.map((r) => rowToPost(r as Parameters<typeof rowToPost>[0]));
     },
-    queued(): SocialPost[] {
-      return db
-        .prepare("SELECT * FROM social_posts WHERE status = 'queued' ORDER BY created_at DESC")
-        .all()
-        .map((r) => rowToPost(r as Parameters<typeof rowToPost>[0]));
+    async queued(): Promise<SocialPost[]> {
+      const rows = await db.all("SELECT * FROM social_posts WHERE status = 'queued' ORDER BY created_at DESC");
+      return rows.map((r) => rowToPost(r as Parameters<typeof rowToPost>[0]));
     },
   };
 
   const people = {
-    all(): Person[] {
-      return db
-        .prepare('SELECT * FROM people ORDER BY department_id, name')
-        .all()
-        .map((r: any) =>
-          PersonSchema.parse({
-            id: r.id,
-            departmentId: r.department_id,
-            name: r.name,
-            role: r.role,
-            tools: JSON.parse(r.tools),
-          }),
-        );
+    async all(): Promise<Person[]> {
+      const rows = await db.all<any>('SELECT * FROM people ORDER BY department_id, name');
+      return rows.map((r) =>
+        PersonSchema.parse({
+          id: r.id,
+          departmentId: r.department_id,
+          name: r.name,
+          role: r.role,
+          tools: JSON.parse(r.tools),
+        }),
+      );
     },
-    insert(p: Person): void {
+    async insert(p: Person): Promise<void> {
       PersonSchema.parse(p);
-      db.prepare(
-        'INSERT OR REPLACE INTO people (id, department_id, name, role, tools) VALUES (?, ?, ?, ?, ?)',
-      ).run(p.id, p.departmentId, p.name, p.role, JSON.stringify(p.tools));
+      await db.run('INSERT OR REPLACE INTO people (id, department_id, name, role, tools) VALUES (?, ?, ?, ?, ?)', [
+        p.id, p.departmentId, p.name, p.role, JSON.stringify(p.tools),
+      ]);
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM people WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM people WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
   const leadMagnets = {
-    all(): LeadMagnet[] {
-      return db
-        .prepare('SELECT * FROM lead_magnets ORDER BY launched_at DESC, name')
-        .all()
-        .map((r: any) =>
-          LeadMagnetSchema.parse({
-            id: r.id,
-            name: r.name,
-            offer: r.offer,
-            url: r.url,
-            status: r.status,
-            captures: r.captures,
-            destination: r.destination,
-            source: r.source,
-            launchedAt: r.launched_at,
-            notes: r.notes,
-            origin: r.origin ?? 'seed',
-          }),
-        );
+    async all(): Promise<LeadMagnet[]> {
+      const rows = await db.all<any>('SELECT * FROM lead_magnets ORDER BY launched_at DESC, name');
+      return rows.map((r) =>
+        LeadMagnetSchema.parse({
+          id: r.id,
+          name: r.name,
+          offer: r.offer,
+          url: r.url,
+          status: r.status,
+          captures: r.captures,
+          destination: r.destination,
+          source: r.source,
+          launchedAt: r.launched_at,
+          notes: r.notes,
+          origin: r.origin ?? 'seed',
+        }),
+      );
     },
-    insert(m: LeadMagnet): void {
+    async insert(m: LeadMagnet): Promise<void> {
       LeadMagnetSchema.parse(m);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO lead_magnets (id, name, offer, url, status, captures, destination, source, launched_at, notes, origin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(m.id, m.name, m.offer, m.url, m.status, m.captures, m.destination, m.source, m.launchedAt, m.notes, m.origin ?? 'seed');
+        [m.id, m.name, m.offer, m.url, m.status, m.captures, m.destination, m.source, m.launchedAt, m.notes, m.origin ?? 'seed'],
+      );
     },
-    byId(id: string): LeadMagnet | null {
-      const r = db.prepare('SELECT * FROM lead_magnets WHERE id = ?').get(id) as any;
+    async byId(id: string): Promise<LeadMagnet | null> {
+      const r = (await db.get('SELECT * FROM lead_magnets WHERE id = ?', [id])) as any;
       if (!r) return null;
       return LeadMagnetSchema.parse({
         id: r.id, name: r.name, offer: r.offer, url: r.url, status: r.status,
@@ -988,104 +999,100 @@ export function openDb(path: string) {
     },
     /** Delete one row by id. Returns false when it was not there, so the API
      *  can 404 instead of pretending. */
-    remove(id: string): boolean {
-      return db.prepare('DELETE FROM lead_magnets WHERE id = ?').run(id).changes > 0;
+    async remove(id: string): Promise<boolean> {
+      const { changes } = await db.run('DELETE FROM lead_magnets WHERE id = ?', [id]);
+      return changes > 0;
     },
     /** Prune retired SEED rows only. Anything created from the OS is the operator's
      *  and is never deleted by a re-seed. */
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(
-        `DELETE FROM lead_magnets WHERE origin = 'seed' AND id NOT IN (${placeholders})`,
-      ).run(...ids);
+      await db.run(`DELETE FROM lead_magnets WHERE origin = 'seed' AND id NOT IN (${placeholders})`, ids);
     },
   };
 
   const sopTasks = {
-    all(): SopTask[] {
-      return db
-        .prepare('SELECT * FROM sop_tasks ORDER BY department_id, title')
-        .all()
-        .map((r: any) =>
-          SopTaskSchema.parse({
-            id: r.id,
-            departmentId: r.department_id,
-            title: r.title,
-            summary: r.summary,
-            steps: JSON.parse(r.steps),
-            assigneeKind: r.assignee_kind,
-            assigneeId: r.assignee_id,
-          }),
-        );
+    async all(): Promise<SopTask[]> {
+      const rows = await db.all<any>('SELECT * FROM sop_tasks ORDER BY department_id, title');
+      return rows.map((r) =>
+        SopTaskSchema.parse({
+          id: r.id,
+          departmentId: r.department_id,
+          title: r.title,
+          summary: r.summary,
+          steps: JSON.parse(r.steps),
+          assigneeKind: r.assignee_kind,
+          assigneeId: r.assignee_id,
+        }),
+      );
     },
-    insert(t: SopTask): void {
+    async insert(t: SopTask): Promise<void> {
       SopTaskSchema.parse(t);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO sop_tasks (id, department_id, title, summary, steps, assignee_kind, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ).run(t.id, t.departmentId, t.title, t.summary, JSON.stringify(t.steps), t.assigneeKind, t.assigneeId);
+        [t.id, t.departmentId, t.title, t.summary, JSON.stringify(t.steps), t.assigneeKind, t.assigneeId],
+      );
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM sop_tasks WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM sop_tasks WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
   const workflows = {
-    all(): Workflow[] {
-      return db
-        .prepare('SELECT * FROM workflows ORDER BY ord, name')
-        .all()
-        .map((r: any) =>
-          WorkflowSchema.parse({
-            id: r.id,
-            name: r.name,
-            subtitle: r.subtitle,
-            revenueUsd: r.revenue_usd,
-            order: r.ord,
-            steps: JSON.parse(r.steps),
-          }),
-        );
+    async all(): Promise<Workflow[]> {
+      const rows = await db.all<any>('SELECT * FROM workflows ORDER BY ord, name');
+      return rows.map((r) =>
+        WorkflowSchema.parse({
+          id: r.id,
+          name: r.name,
+          subtitle: r.subtitle,
+          revenueUsd: r.revenue_usd,
+          order: r.ord,
+          steps: JSON.parse(r.steps),
+        }),
+      );
     },
-    insert(w: Workflow): void {
+    async insert(w: Workflow): Promise<void> {
       WorkflowSchema.parse(w);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO workflows (id, name, subtitle, revenue_usd, ord, steps) VALUES (?, ?, ?, ?, ?, ?)',
-      ).run(w.id, w.name, w.subtitle, w.revenueUsd, w.order, JSON.stringify(w.steps));
+        [w.id, w.name, w.subtitle, w.revenueUsd, w.order, JSON.stringify(w.steps)],
+      );
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM workflows WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM workflows WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
   const skills = {
-    all(): Skill[] {
-      return db
-        .prepare('SELECT * FROM skills ORDER BY ord, name')
-        .all()
-        .map((r: any) =>
-          SkillSchema.parse({
-            id: r.id,
-            name: r.name,
-            category: r.category,
-            description: r.description,
-            ownerAgentId: r.owner_agent_id,
-            status: r.status,
-            tools: JSON.parse(r.tools),
-            markdown: r.markdown,
-            order: r.ord,
-          }),
-        );
+    async all(): Promise<Skill[]> {
+      const rows = await db.all<any>('SELECT * FROM skills ORDER BY ord, name');
+      return rows.map((r) =>
+        SkillSchema.parse({
+          id: r.id,
+          name: r.name,
+          category: r.category,
+          description: r.description,
+          ownerAgentId: r.owner_agent_id,
+          status: r.status,
+          tools: JSON.parse(r.tools),
+          markdown: r.markdown,
+          order: r.ord,
+        }),
+      );
     },
-    insert(s: Skill): void {
+    async insert(s: Skill): Promise<void> {
       SkillSchema.parse(s);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO skills (id, name, category, description, owner_agent_id, status, tools, markdown, ord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(s.id, s.name, s.category, s.description, s.ownerAgentId, s.status, JSON.stringify(s.tools), s.markdown, s.order);
+        [s.id, s.name, s.category, s.description, s.ownerAgentId, s.status, JSON.stringify(s.tools), s.markdown, s.order],
+      );
     },
-    deleteWhereIdNotIn(ids: string[]): void {
+    async deleteWhereIdNotIn(ids: string[]): Promise<void> {
       const placeholders = ids.map(() => '?').join(', ');
-      db.prepare(`DELETE FROM skills WHERE id NOT IN (${placeholders})`).run(...ids);
+      await db.run(`DELETE FROM skills WHERE id NOT IN (${placeholders})`, ids);
     },
   };
 
@@ -1102,50 +1109,54 @@ export function openDb(path: string) {
     });
 
   const funnel = {
-    insertContact(c: FunnelContact): void {
+    async insertContact(c: FunnelContact): Promise<void> {
       FunnelContactSchema.parse(c);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO funnel_contacts (id, name, venture, status, product, amount_usd, relationship, likelihood, email, phone, person, company, role, linkedin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(c.id, c.name, c.venture, c.status, c.product, c.amountUsd, c.relationship, c.likelihood, c.email, c.phone, c.person, c.company, c.role, c.linkedin, c.createdAt);
+        [c.id, c.name, c.venture, c.status, c.product, c.amountUsd, c.relationship, c.likelihood, c.email, c.phone, c.person, c.company, c.role, c.linkedin, c.createdAt],
+      );
     },
-    insertTouch(t: FunnelTouch): void {
+    async insertTouch(t: FunnelTouch): Promise<void> {
       FunnelTouchSchema.parse(t);
-      db.prepare(
+      await db.run(
         'INSERT OR REPLACE INTO funnel_touches (id, contact_id, seq, stage, channel, label, source, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(t.id, t.contactId, t.seq, t.stage, t.channel, t.label, t.source, t.at);
+        [t.id, t.contactId, t.seq, t.stage, t.channel, t.label, t.source, t.at],
+      );
     },
     /** Contacts with their touches in journey order, newest contact first. */
-    journeys(venture?: FunnelVenture): FunnelJourney[] {
-      const rows = (
-        venture
-          ? db.prepare('SELECT * FROM funnel_contacts WHERE venture = ? ORDER BY created_at DESC, id').all(venture)
-          : db.prepare('SELECT * FROM funnel_contacts ORDER BY created_at DESC, id').all()
-      ) as any[];
-      const touchStmt = db.prepare('SELECT * FROM funnel_touches WHERE contact_id = ? ORDER BY seq');
-      return rows.map((r) =>
-        FunnelJourneySchema.parse({
-          id: r.id,
-          name: r.name,
-          venture: r.venture,
-          status: r.status,
-          product: r.product,
-          amountUsd: r.amount_usd,
-          relationship: r.relationship,
-          likelihood: r.likelihood,
-          email: r.email,
-          phone: r.phone,
-          person: r.person,
-          company: r.company,
-          role: r.role,
-          linkedin: r.linkedin,
-          createdAt: r.created_at,
-          touches: touchStmt.all(r.id).map(rowToFunnelTouch),
+    async journeys(venture?: FunnelVenture): Promise<FunnelJourney[]> {
+      const rows = (venture
+        ? await db.all('SELECT * FROM funnel_contacts WHERE venture = ? ORDER BY created_at DESC, id', [venture])
+        : await db.all('SELECT * FROM funnel_contacts ORDER BY created_at DESC, id')) as any[];
+      return Promise.all(
+        rows.map(async (r) => {
+          const touches = await db.all('SELECT * FROM funnel_touches WHERE contact_id = ? ORDER BY seq', [r.id]);
+          return FunnelJourneySchema.parse({
+            id: r.id,
+            name: r.name,
+            venture: r.venture,
+            status: r.status,
+            product: r.product,
+            amountUsd: r.amount_usd,
+            relationship: r.relationship,
+            likelihood: r.likelihood,
+            email: r.email,
+            phone: r.phone,
+            person: r.person,
+            company: r.company,
+            role: r.role,
+            linkedin: r.linkedin,
+            createdAt: r.created_at,
+            touches: touches.map(rowToFunnelTouch),
+          });
         }),
       );
     },
   };
 
   return {
+    /** The dialect actually in use, so the UI can be honest about where it is. */
+    dialect: db.dialect,
     departments,
     agents,
     tools,
@@ -1173,4 +1184,4 @@ export function openDb(path: string) {
   };
 }
 
-export type FounderDb = ReturnType<typeof openDb>;
+export type FounderDb = Awaited<ReturnType<typeof openDb>>;

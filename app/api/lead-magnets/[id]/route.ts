@@ -28,19 +28,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const db = getDb();
-  const existing = db.leadMagnets.byId(params.id);
+  const db = (await getDb());
+  const existing = await db.leadMagnets.byId(params.id);
   if (!existing) return NextResponse.json({ error: 'lead magnet not found' }, { status: 404 });
 
   // id and origin are not editable: the id is referenced by whatever links to
   // it, and origin is what protects an OS-made row from the seed.
   const updated = { ...existing, ...parsed.data, id: existing.id, origin: existing.origin };
-  db.leadMagnets.insert(updated);
+  await db.leadMagnets.insert(updated);
   return NextResponse.json({ leadMagnet: updated });
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const removed = getDb().leadMagnets.remove(params.id);
+  const removed = await (await getDb()).leadMagnets.remove(params.id);
   if (!removed) return NextResponse.json({ error: 'lead magnet not found' }, { status: 404 });
   return NextResponse.json({ ok: true, id: params.id });
 }

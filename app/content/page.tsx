@@ -96,9 +96,9 @@ function BacklinkCard({
 }
 
 export default async function ContentPage() {
-  const leadMagnets = getDb().leadMagnets.all();
-  const db = getDb();
-  const crew = contentAgents(db.agents.all());
+  const leadMagnets = await (await getDb()).leadMagnets.all();
+  const db = (await getDb());
+  const crew = contentAgents(await db.agents.all());
   const lead = crew[0] ?? null;
   const workers = lead ? crew.slice(1) : crew;
 

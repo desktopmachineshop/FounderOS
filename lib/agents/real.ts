@@ -157,7 +157,7 @@ export const realAgents: RuntimeAgent[] = [
     async run() {
       const [postly, adsmith] = await Promise.all([zernioRun(), arcadsRun()]);
       const live = [postly, adsmith].filter((r) => r.ok).length;
-      const queued = getDb().socialPosts.queued().length;
+      const queued = (await (await getDb()).socialPosts.queued()).length;
       const queueNote = queued > 0 ? `${queued} post${queued === 1 ? '' : 's'} queued for publish` : 'no posts queued';
       return {
         ok: live > 0,
@@ -453,8 +453,8 @@ export const realAgents: RuntimeAgent[] = [
     description: 'The live client list: funnel journeys reconciled with Ledger, counted by venture and status.',
     departmentId: 'dept-clients',
     async run() {
-      const db = getDb();
-      const journeys = db.funnel.journeys();
+      const db = (await getDb());
+      const journeys = await db.funnel.journeys();
       const converted = journeys.filter((j) => j.status === 'converted');
       const live = await attioClients();
       const servingAttio = live.state === 'connected' && live.clients.length > 0;

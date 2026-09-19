@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 /** Force a live follower-count sync from Zernio/Late and report what landed.
     GET and POST both work so it's trivial to trigger from a browser or curl. */
 async function runSync() {
-  const db = getDb();
+  const db = (await getDb());
   const accounts = await zernioLiveAccounts();
   const recorded = await syncFromZernioLive(db, { source: async () => accounts });
   return NextResponse.json({

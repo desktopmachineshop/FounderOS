@@ -7,14 +7,14 @@
 import { ActivityEventSchema, type ActivityEvent } from '@/lib/schemas';
 import type { FounderDb } from '@/lib/db';
 
-export function recentActivity(db: FounderDb, limit = 50): ActivityEvent[] {
+export async function recentActivity(db: FounderDb, limit = 50): Promise<ActivityEvent[]> {
   const events: ActivityEvent[] = [];
 
-  for (const run of db.agentRuns.recent(limit)) {
+  for (const run of await db.agentRuns.recent(limit)) {
     events.push({ kind: 'run', agentId: run.agentId, at: run.startedAt, summary: run.summary, ok: run.ok });
   }
 
-  for (const msg of db.agentMessages.recent(limit)) {
+  for (const msg of await db.agentMessages.recent(limit)) {
     if (msg.role === 'user') continue; // the feed is what the agent did, not what you asked
     const summary =
       msg.role === 'tool'
@@ -23,7 +23,7 @@ export function recentActivity(db: FounderDb, limit = 50): ActivityEvent[] {
     events.push({ kind: 'message', agentId: msg.agentId, at: msg.createdAt, summary: summary.slice(0, 200) });
   }
 
-  for (const b of db.broadcasts.recent(limit)) {
+  for (const b of await db.broadcasts.recent(limit)) {
     for (const reply of b.replies) {
       events.push({ kind: 'broadcast', agentId: reply.agentId, at: reply.finishedAt, summary: reply.reply.slice(0, 200), ok: reply.ok });
     }

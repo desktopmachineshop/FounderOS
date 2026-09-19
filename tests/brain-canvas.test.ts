@@ -116,10 +116,10 @@ describe('the knowledge graph is a blank canvas', () => {
     const { buildKnowledgeGraph } = await import('@/lib/knowledge-graph');
     const { openDb } = await import('@/lib/db');
     const { seedDatabase } = await import('@/lib/seed');
-    const db = openDb(':memory:');
-    seedDatabase(db);
-    const g = buildKnowledgeGraph(db.agents.all(), db.departments.all(), db.people.all(), db.sopTasks.all());
-    db.close();
+    const db = await openDb(':memory:');
+    await seedDatabase(db);
+    const g = buildKnowledgeGraph(await db.agents.all(), await db.departments.all(), await db.people.all(), await db.sopTasks.all());
+    await db.close();
 
     const identifying =
       /attio|zernio|fanbasis|higgsfield|manychat|arcads|wispr|fathom|remotion|openclaw|trakyo|beehiiv|webinarjam|pava|merydian|bennett|spooner|accelerant/i;

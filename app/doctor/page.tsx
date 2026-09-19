@@ -91,16 +91,16 @@ function FlowStep({ title, detail, dashed = false }: { title: string; detail: st
 export default async function DoctorPage() {
   const overview = await createGBrainProvider().overview();
   const { store, doctor } = overview;
-  const db = getDb();
+  const db = (await getDb());
   const maxFiles = Math.max(1, ...store.folders.map((f) => f.files));
   const clusters = foldersToClusters(store.folders);
   const storeShort = store.path.replace(process.env.HOME ?? '', '~');
 
-  const lastBrainRun = db.agentRuns.byAgent('data-agent')[0];
+  const lastBrainRun = (await db.agentRuns.byAgent('data-agent'))[0];
   // latest run per agent (oldest first so the LAST write per id is the newest)
   const runsByAgent = Object.fromEntries(
-    db.agentRuns
-      .recent(300)
+    (await db.agentRuns
+      .recent(300))
       .reverse()
       .map((r) => [r.agentId, r]),
   );
@@ -158,7 +158,7 @@ export default async function DoctorPage() {
             </span>
           </div>
           <PillarRadar
-            axes={pillarRadarAxes(db.departments.all(), db.agents.all(), db.sopTasks.all(), runsByAgent)}
+            axes={pillarRadarAxes(await db.departments.all(), await db.agents.all(), await db.sopTasks.all(), runsByAgent)}
             health={doctor.healthScore}
             warnings={warnings.length}
           />

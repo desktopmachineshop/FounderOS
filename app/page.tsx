@@ -119,7 +119,7 @@ function StatTile({
 }
 
 export default async function HomePage() {
-  const db = getDb();
+  const db = (await getDb());
   // Live follower sync from Zernio/Late (falls back to static config on API
   // failure) — parity with /social so the home figures are real-time too.
   // It rides the same Promise.all as the other fetches: it still finishes
@@ -134,11 +134,11 @@ export default async function HomePage() {
     syncFromZernioLive(db),
   ]).then(([c, o, f, p]) => [c, o, f, p] as const);
 
-  const agents = db.agents.all();
-  const departments = new Map(db.departments.all().map((d) => [d.id, d.name]));
-  const recentRuns = db.agentRuns.recent(40);
+  const agents = await db.agents.all();
+  const departments = new Map((await db.departments.all()).map((d) => [d.id, d.name]));
+  const recentRuns = await db.agentRuns.recent(40);
   // Wider pull just for the runs/day sparkline — 40 may not span a week.
-  const runsForSpark = db.agentRuns.recent(400);
+  const runsForSpark = await db.agentRuns.recent(400);
   const lastRunByAgent = new Map<string, (typeof recentRuns)[number]>();
   for (const r of recentRuns) if (!lastRunByAgent.has(r.agentId)) lastRunByAgent.set(r.agentId, r);
 
@@ -161,7 +161,7 @@ export default async function HomePage() {
     brainConnected: overview.doctor.connected,
     failedRuns,
   });
-  const { channels, all } = audienceSeries(db);
+  const { channels, all } = await audienceSeries(db);
   // Real per-platform posting from Zernio history (cross-posts counted per
   // platform), decorated with the brand palette HomeSocialGraph expects.
   const TRACKED: SocialPlatform[] = ['instagram', 'tiktok', 'twitter', 'youtube', 'linkedin'];
@@ -172,7 +172,7 @@ export default async function HomePage() {
     color: PLATFORM_COLORS[s.key as SocialPlatform],
   }));
 
-  const nowQuarter = groupRoadmapByQuarter(db.roadmap.all())[0];
+  const nowQuarter = groupRoadmapByQuarter(await db.roadmap.all())[0];
   const nowItems = nowQuarter?.items.slice(0, 5) ?? [];
 
   // Ticker line items — newest agent runs, honest OK / FAIL.

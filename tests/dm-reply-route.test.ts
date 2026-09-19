@@ -24,13 +24,13 @@ describe('POST /api/social/dm/reply', () => {
   test('honest 502 and stores nothing when ManyChat is not connected', async () => {
     const { POST } = await import('@/app/api/social/dm/reply/route');
     const { getDb } = await import('@/lib/data');
-    const before = getDb().social.dmMessages('instagram').filter((m) => m.direction === 'out').length;
+    const before = (await (await getDb()).social.dmMessages('instagram')).filter((m) => m.direction === 'out').length;
 
     const res = await POST(post({ subscriberId: 'ig-alex', text: 'on it' }));
     expect(res.status).toBe(502);
     expect((await res.json()).ok).toBe(false);
 
-    const after = getDb().social.dmMessages('instagram').filter((m) => m.direction === 'out').length;
+    const after = (await (await getDb()).social.dmMessages('instagram')).filter((m) => m.direction === 'out').length;
     expect(after).toBe(before); // never fakes a send
   });
 
@@ -47,7 +47,7 @@ describe('POST /api/social/dm/reply', () => {
     expect(body.ok).toBe(true);
     expect(body.message.direction).toBe('out');
 
-    const stored = getDb().social.dmMessages('instagram').find((m) => m.id === body.message.id);
+    const stored = (await (await getDb()).social.dmMessages('instagram')).find((m) => m.id === body.message.id);
     expect(stored?.text).toBe('here is pricing');
     expect(stored?.source).toBe('manychat');
     expect(stored?.name).toBe('Alex Rivera'); // resolved from the existing thread

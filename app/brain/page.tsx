@@ -1,4 +1,5 @@
 import { readStoreNotes } from '@/lib/connectors/gbrain';
+import type { FounderDb } from '@/lib/db';
 import type { RosterClient } from '@/lib/schemas';
 import { buildBrainGraph } from '@/lib/brain-graph';
 import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
@@ -19,8 +20,8 @@ export const dynamic = 'force-dynamic';
 
 // The client roster is the seeded funnel. Wire a CRM in here and the graph's
 // client ring becomes live without touching the graph itself.
-function clientRoster(db: ReturnType<typeof getDb>): RosterClient[] {
-  return db.funnel.journeys().map((j) => ({
+async function clientRoster(db: FounderDb): Promise<RosterClient[]> {
+  return (await db.funnel.journeys()).map((j) => ({
     id: j.id,
     name: j.name,
     venture: j.venture,
@@ -52,21 +53,21 @@ function memoryConstellation(): MemoryGraph {
   return value;
 }
 
-export default function BrainPage() {
-  const db = getDb();
+export default async function BrainPage() {
+  const db = (await getDb());
   // latest run per agent (oldest first so the LAST write per id is the newest)
   const runsByAgent = Object.fromEntries(
-    db.agentRuns
-      .recent(300)
+    (await db.agentRuns
+      .recent(300))
       .reverse()
       .map((r) => [r.agentId, r]),
   );
 
   const knowledgeGraph = buildKnowledgeGraph(
-    db.agents.all(),
-    db.departments.all(),
-    db.people.all(),
-    db.sopTasks.all(),
+    await db.agents.all(),
+    await db.departments.all(),
+    await db.people.all(),
+    await db.sopTasks.all(),
   );
 
   return (
@@ -88,12 +89,12 @@ export default function BrainPage() {
         <BrainGraphView
           fill
           graph={knowledgeGraph}
-          agents={db.agents.all()}
-          departments={db.departments.all()}
-          people={db.people.all()}
-          tasks={db.sopTasks.all()}
+          agents={await db.agents.all()}
+          departments={await db.departments.all()}
+          people={await db.people.all()}
+          tasks={await db.sopTasks.all()}
           memory={memoryConstellation()}
-          clients={clientRoster(db)}
+          clients={await clientRoster(db)}
           runsByAgent={runsByAgent}
         />
       </div>

@@ -5,6 +5,6 @@ import { groupRoadmapByQuarter } from '@/lib/roadmap';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const db = getDb();
-  return NextResponse.json({ quarters: groupRoadmapByQuarter(db.roadmap.all()) });
+  const db = (await getDb());
+  return NextResponse.json({ quarters: groupRoadmapByQuarter(await db.roadmap.all()) });
 }

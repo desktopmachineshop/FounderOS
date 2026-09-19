@@ -17,13 +17,13 @@ import { seedDatabase } from '@/lib/seed';
 let db: FounderDb;
 let file: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lm-create-')), 'test.db');
-  db = openDb(file);
+  db = await openDb(file);
 });
 
-afterEach(() => {
-  db?.close();
+afterEach(async () => {
+  await db?.close();
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });
 
@@ -43,37 +43,37 @@ const made = (over: Partial<Parameters<FounderDb['leadMagnets']['insert']>[0]> =
 });
 
 describe('lead magnets created in the OS', () => {
-  it('round-trips a runtime row, defaulting origin to os', () => {
-    db.leadMagnets.insert(made());
-    const [row] = db.leadMagnets.all().filter((r) => r.id === 'operator-teardown');
+  it('round-trips a runtime row, defaulting origin to os', async () => {
+    await db.leadMagnets.insert(made());
+    const [row] = (await db.leadMagnets.all()).filter((r) => r.id === 'operator-teardown');
     expect(row.name).toBe('The Operator Teardown');
     expect(row.url).toBe('https://teardown.example.com');
     expect(row.origin).toBe('os');
   });
 
-  it('seeded rows are marked origin seed', () => {
-    seedDatabase(db);
-    const seeded = db.leadMagnets.all();
+  it('seeded rows are marked origin seed', async () => {
+    await seedDatabase(db);
+    const seeded = await db.leadMagnets.all();
     expect(seeded.length).toBeGreaterThan(0);
     expect(seeded.every((r) => r.origin === 'seed')).toBe(true);
   });
 
-  it('SURVIVES a re-seed — the seed may only prune its own rows', () => {
-    seedDatabase(db);
-    db.leadMagnets.insert(made());
-    seedDatabase(db); // the destructive step
-    const ids = db.leadMagnets.all().map((r) => r.id);
+  it('SURVIVES a re-seed — the seed may only prune its own rows', async () => {
+    await seedDatabase(db);
+    await db.leadMagnets.insert(made());
+    await seedDatabase(db); // the destructive step
+    const ids = (await db.leadMagnets.all()).map((r) => r.id);
     expect(ids, 'an OS-created lead magnet must not be deleted by seeding').toContain('operator-teardown');
   });
 
-  it('still prunes a seeded row that has left the seed file', () => {
-    seedDatabase(db);
-    db.leadMagnets.insert(made({ id: 'retired-seed-row', origin: 'seed' }));
-    seedDatabase(db);
-    expect(db.leadMagnets.all().map((r) => r.id)).not.toContain('retired-seed-row');
+  it('still prunes a seeded row that has left the seed file', async () => {
+    await seedDatabase(db);
+    await db.leadMagnets.insert(made({ id: 'retired-seed-row', origin: 'seed' }));
+    await seedDatabase(db);
+    expect((await db.leadMagnets.all()).map((r) => r.id)).not.toContain('retired-seed-row');
   });
 
-  it('rejects a row whose url is not a url', () => {
-    expect(() => db.leadMagnets.insert(made({ url: 'not-a-url' }))).toThrow();
+  it('rejects a row whose url is not a url', async () => {
+    await expect(db.leadMagnets.insert(made({ url: 'not-a-url' }))).rejects.toThrow();
   });
 });

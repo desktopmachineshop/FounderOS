@@ -69,7 +69,7 @@ function AgentRosterCard({
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-os-muted [text-wrap:pretty]">{agent.description}</p>
 
       <div className="mt-3 flex flex-wrap gap-1">
-        {agent.tools.slice(0, 5).map((tool) => (
+        {(agent.tools.slice(0, 5)).map((tool) => (
           <span
             key={tool}
             className="whitespace-nowrap rounded-sm-t border border-os-border bg-os-surface2 px-[7px] py-0.5 font-mono text-[9.5px] text-os-muted"
@@ -106,16 +106,28 @@ function AgentRosterCard({
   );
 }
 
-export default function AgentsPage() {
-  const db = getDb();
-  const departments = db.departments.all();
-  const agents = db.agents.all();
+export default async function AgentsPage() {
+  const db = (await getDb());
+  const departments = await db.departments.all();
+  const agents = await db.agents.all();
   const agentsById = new Map(agents.map((a) => [a.id, a]));
   const agentNames = Object.fromEntries(agents.map((a) => [a.id, a.name]));
-  const activity = recentActivity(db, 40);
-  const totalRuns = db.agentRuns.recent(1000).length;
-  const allTasks = db.agentTasks.all();
-  const allCrons = db.agentCrons.all();
+  const activity = await recentActivity(db, 40);
+  const totalRuns = (await db.agentRuns.recent(1000)).length;
+  const allTasks = await db.agentTasks.all();
+  const allCrons = await db.agentCrons.all();
+  // Runs and messages per agent, fetched once up front: rendering cannot await,
+  // and a query per card inside the JSX would be an N+1.
+  const runsByAgent = new Map(
+    await Promise.all(
+      agents.map(async (a) => [a.id, await db.agentRuns.byAgent(a.id)] as const),
+    ),
+  );
+  const messagesByAgent = new Map(
+    await Promise.all(
+      agents.map(async (a) => [a.id, await db.agentMessages.byAgent(a.id)] as const),
+    ),
+  );
   const openTasks = allTasks.filter((t) => t.status !== 'done').length;
 
   return (
@@ -162,10 +174,10 @@ export default function AgentsPage() {
                     key={agent.id}
                     agent={agent}
                     parent={agent.parentId ? agentsById.get(agent.parentId) ?? null : null}
-                    lastRun={db.agentRuns.byAgent(agent.id)[0]}
+                    lastRun={(runsByAgent.get(agent.id) ?? [])[0]}
                     tasks={allTasks.filter((t) => t.agentId === agent.id)}
                     crons={allCrons.filter((c) => c.agentId === agent.id)}
-                    messages={db.agentMessages.byAgent(agent.id)}
+                    messages={messagesByAgent.get(agent.id) ?? []}
                   />
                 ))}
               </div>

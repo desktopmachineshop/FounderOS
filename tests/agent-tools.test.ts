@@ -25,9 +25,9 @@ describe('agent chat tools', () => {
   });
 
   test('a triggered tool call executes the connector and persists a tool turn', async () => {
-    const db = openDb(':memory:');
+    const db = await openDb(':memory:');
     const res = await chatWithAgent(db, realAgents, 'data-agent', 'use-tool:searchGBrain revenue split');
-    const rows = db.agentMessages.byAgent('data-agent');
+    const rows = await db.agentMessages.byAgent('data-agent');
     expect(rows.map((m) => m.role)).toEqual(['user', 'tool', 'assistant']);
     const toolRow = rows.find((m) => m.role === 'tool')!;
     expect(toolRow.toolCalls.map((c) => c.name)).toContain('searchGBrain');

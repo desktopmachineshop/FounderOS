@@ -62,8 +62,8 @@ describe('postingCadenceByPlatform', () => {
 
 let db: FounderDb;
 
-afterEach(() => {
-  db?.close();
+afterEach(async () => {
+  await db?.close();
 });
 
 const emailSnap = (capturedAt: string, subscribers: number): EmailListSnapshot =>
@@ -76,50 +76,50 @@ describe('email-list schema + repo', () => {
     expect(() => emailSnap('2026-06-12', 30000)).not.toThrow();
   });
 
-  test('repo round-trips snapshots in date order and exposes the latest', () => {
-    db = openDb(':memory:');
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
-    db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
-    const series = db.emailList.snapshots();
+  test('repo round-trips snapshots in date order and exposes the latest', async () => {
+    db = await openDb(':memory:');
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    await db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
+    const series = await db.emailList.snapshots();
     expect(series.map((s) => s.capturedAt)).toEqual(['2026-05-13', '2026-06-12']);
-    expect(db.emailList.latest()?.subscribers).toBe(30000);
+    expect(await (await db.emailList.latest())?.subscribers).toBe(30000);
   });
 
-  test('same-day insert overwrites (idempotent re-sync)', () => {
-    db = openDb(':memory:');
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30050));
-    expect(db.emailList.snapshots()).toHaveLength(1);
-    expect(db.emailList.latest()?.subscribers).toBe(30050);
+  test('same-day insert overwrites (idempotent re-sync)', async () => {
+    db = await openDb(':memory:');
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30050));
+    expect(await db.emailList.snapshots()).toHaveLength(1);
+    expect(await (await db.emailList.latest())?.subscribers).toBe(30050);
   });
 });
 
 describe('buildEmailList', () => {
-  test('reports subscribers, growth, and a series; honest nulls without history', () => {
-    db = openDb(':memory:');
+  test('reports subscribers, growth, and a series; honest nulls without history', async () => {
+    db = await openDb(':memory:');
     const empty = buildEmailList(db);
-    expect(empty.subscribers).toBeNull();
-    expect(empty.growth.d30).toBeNull();
+    expect((await empty).subscribers).toBeNull();
+    expect((await empty).growth.d30).toBeNull();
 
-    db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    await db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
     const built = buildEmailList(db);
-    expect(built.subscribers).toBe(30000);
-    expect(built.asOf).toBe('2026-06-12');
-    expect(built.growth.d30).toBeCloseTo(((30000 - 28000) / 28000) * 100, 5);
-    expect(built.series.at(-1)).toEqual({ date: '2026-06-12', subscribers: 30000 });
+    expect((await built).subscribers).toBe(30000);
+    expect((await built).asOf).toBe('2026-06-12');
+    expect((await built).growth.d30).toBeCloseTo(((30000 - 28000) / 28000) * 100, 5);
+    expect((await built).series.at(-1)).toEqual({ date: '2026-06-12', subscribers: 30000 });
   });
 });
 
 describe('DM totals', () => {
-  test('seeded DB exposes per-platform DM counts that sum to the total', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
+  test('seeded DB exposes per-platform DM counts that sum to the total', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
     const byPlatform = dmsByPlatform(db);
-    expect(byPlatform.length).toBeGreaterThan(0);
-    const sum = byPlatform.reduce((s, d) => s + d.count, 0);
-    expect(totalDms(db)).toBe(sum);
-    expect(totalDms(db)).toBeGreaterThan(0);
+    expect((await byPlatform).length).toBeGreaterThan(0);
+    const sum = (await byPlatform).reduce((s, d) => s + d.count, 0);
+    expect(await totalDms(db)).toBe(sum);
+    expect(await totalDms(db)).toBeGreaterThan(0);
   });
 
   test('DM schema rejects unknown platforms and negative counts', () => {
@@ -130,24 +130,24 @@ describe('DM totals', () => {
 });
 
 describe('monthlyAudienceGrowthPct', () => {
-  test('aggregates 30-day growth across channels with a baseline; null when none qualify', () => {
-    db = openDb(':memory:');
-    expect(monthlyAudienceGrowthPct(db)).toBeNull();
+  test('aggregates 30-day growth across channels with a baseline; null when none qualify', async () => {
+    db = await openDb(':memory:');
+    expect(await monthlyAudienceGrowthPct(db)).toBeNull();
 
     // email has month-long history → qualifies
-    db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    await db.emailList.insertSnapshot(emailSnap('2026-05-13', 28000));
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
     // a platform with only a recent baseline does NOT reach back 30 days → excluded
-    db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
-    db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
+    await db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
+    await db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
 
     // only email qualifies: (30000-28000)/28000
-    expect(monthlyAudienceGrowthPct(db)).toBeCloseTo(((30000 - 28000) / 28000) * 100, 5);
+    expect(await monthlyAudienceGrowthPct(db)).toBeCloseTo(((30000 - 28000) / 28000) * 100, 5);
 
     // give instagram a 30-day baseline too → both aggregate
-    db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-05-13', followers: 38000, source: 'test' });
+    await db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-05-13', followers: 38000, source: 'test' });
     const expected = ((30000 + 40000 - (28000 + 38000)) / (28000 + 38000)) * 100;
-    expect(monthlyAudienceGrowthPct(db)).toBeCloseTo(expected, 5);
+    expect(await monthlyAudienceGrowthPct(db)).toBeCloseTo(expected, 5);
   });
 });
 
@@ -158,78 +158,78 @@ describe('DM history snapshots', () => {
     expect(() => SocialDmSnapshotSchema.parse({ platform: 'instagram', capturedAt: '2026-06-12', count: 5, source: 't' })).not.toThrow();
   });
 
-  test('repo round-trips DM snapshots ordered by date', () => {
-    db = openDb(':memory:');
-    db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', count: 1240, source: 'test' });
-    db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-05-12', count: 1000, source: 'test' });
-    db.social.insertDmSnapshot({ platform: 'tiktok', capturedAt: '2026-06-12', count: 386, source: 'test' });
-    expect(db.social.dmSnapshots('instagram').map((s) => s.capturedAt)).toEqual(['2026-05-12', '2026-06-12']);
-    expect(db.social.dmSnapshots().length).toBe(3);
+  test('repo round-trips DM snapshots ordered by date', async () => {
+    db = await openDb(':memory:');
+    await db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', count: 1240, source: 'test' });
+    await db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-05-12', count: 1000, source: 'test' });
+    await db.social.insertDmSnapshot({ platform: 'tiktok', capturedAt: '2026-06-12', count: 386, source: 'test' });
+    expect((await db.social.dmSnapshots('instagram')).map((s) => s.capturedAt)).toEqual(['2026-05-12', '2026-06-12']);
+    expect((await db.social.dmSnapshots()).length).toBe(3);
   });
 
-  test('dmSeries totals DMs per day (carry-forward) and dmGrowthPct uses the window', () => {
-    db = openDb(':memory:');
-    db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-05-13', count: 1000, source: 'test' });
-    db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', count: 1240, source: 'test' });
-    db.social.insertDmSnapshot({ platform: 'tiktok', capturedAt: '2026-06-12', count: 360, source: 'test' });
+  test('dmSeries totals DMs per day (carry-forward) and dmGrowthPct uses the window', async () => {
+    db = await openDb(':memory:');
+    await db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-05-13', count: 1000, source: 'test' });
+    await db.social.insertDmSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', count: 1240, source: 'test' });
+    await db.social.insertDmSnapshot({ platform: 'tiktok', capturedAt: '2026-06-12', count: 360, source: 'test' });
     const series = dmSeries(db);
-    expect(series.at(-1)).toEqual({ date: '2026-06-12', value: 1600 }); // 1240 + 360
+    expect((await series).at(-1)).toEqual({ date: '2026-06-12', value: 1600 }); // 1240 + 360
     // 30d growth of the total: ig went 1000→1240 over the window (tiktok has no baseline)
-    expect(dmGrowthPct(db, 30)).toBeCloseTo(((1600 - 1000) / 1000) * 100, 5);
+    expect(await dmGrowthPct(db, 30)).toBeCloseTo(((1600 - 1000) / 1000) * 100, 5);
   });
 });
 
 describe('audience series + range growth', () => {
-  test('audienceSeries returns per-channel series + an All series that sums them', () => {
-    db = openDb(':memory:');
-    db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
-    db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
-    const { channels, all } = audienceSeries(db);
+  test('audienceSeries returns per-channel series + an All series that sums them', async () => {
+    db = await openDb(':memory:');
+    await db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
+    await db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    const { channels, all } = await audienceSeries(db);
     expect(channels.map((c) => c.key)).toContain('instagram');
     expect(channels.map((c) => c.key)).toContain('email');
     expect(all.points.at(-1)).toEqual({ date: '2026-06-12', value: 70000 });
   });
 
-  test('audienceGrowthPct computes per range; audienceTotal sums latest channel values', () => {
-    db = openDb(':memory:');
-    db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
-    db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-04-13', followers: 36000, source: 'test' });
-    db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
-    db.emailList.insertSnapshot(emailSnap('2026-04-13', 27000));
-    db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
-    expect(audienceTotal(db)).toBe(70000);
+  test('audienceGrowthPct computes per range; audienceTotal sums latest channel values', async () => {
+    db = await openDb(':memory:');
+    await db.social.upsertAccount({ platform: 'instagram', handle: '@x', url: null, order: 1 });
+    await db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-04-13', followers: 36000, source: 'test' });
+    await db.social.insertSnapshot({ platform: 'instagram', capturedAt: '2026-06-12', followers: 40000, source: 'test' });
+    await db.emailList.insertSnapshot(emailSnap('2026-04-13', 27000));
+    await db.emailList.insertSnapshot(emailSnap('2026-06-12', 30000));
+    expect(await audienceTotal(db)).toBe(70000);
     // 60d window from 06-12 starts 04-13 → baseline 63000 → +11.11%
-    expect(audienceGrowthPct(db, 60)).toBeCloseTo(((70000 - 63000) / 63000) * 100, 4);
+    expect(await audienceGrowthPct(db, 60)).toBeCloseTo(((70000 - 63000) / 63000) * 100, 4);
     // back-compat: monthly == audienceGrowthPct(db, 30)
-    expect(monthlyAudienceGrowthPct(db)).toBe(audienceGrowthPct(db, 30));
+    expect(await monthlyAudienceGrowthPct(db)).toBe(await audienceGrowthPct(db, 30));
   });
 });
 
 describe('seed history is deep enough for growth math', () => {
-  test('followers + DMs carry multi-month history; the real email list is young but honest', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
+  test('followers + DMs carry multi-month history; the real email list is young but honest', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
     // followers span ~90 days, so the merged audience computes every window
-    expect(audienceGrowthPct(db, 7)).not.toBeNull();
-    expect(audienceGrowthPct(db, 30)).not.toBeNull();
-    expect(audienceGrowthPct(db, 60)).not.toBeNull();
-    expect(dmGrowthPct(db, 60)).not.toBeNull();
-    expect(db.social.dmSnapshots().length).toBeGreaterThan(50);
+    expect(await audienceGrowthPct(db, 7)).not.toBeNull();
+    expect(await audienceGrowthPct(db, 30)).not.toBeNull();
+    expect(await audienceGrowthPct(db, 60)).not.toBeNull();
+    expect(await dmGrowthPct(db, 60)).not.toBeNull();
+    expect((await db.social.dmSnapshots()).length).toBeGreaterThan(50);
     // the email list is the seeded Beehiiv account: its
     // short window is computable, but 60d honestly predates the list → null
     const email = buildEmailList(db);
-    expect(email.subscribers).toBe(1850);
-    expect(email.growth.d7).not.toBeNull();
-    expect(email.growth.d60).toBeNull();
+    expect((await email).subscribers).toBe(1850);
+    expect((await email).growth.d7).not.toBeNull();
+    expect((await email).growth.d60).toBeNull();
   });
 
-  test('re-seed stays idempotent (no duplicate snapshot rows)', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const before = db.social.dmSnapshots().length;
-    seedDatabase(db);
-    expect(db.social.dmSnapshots().length).toBe(before);
+  test('re-seed stays idempotent (no duplicate snapshot rows)', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const before = (await db.social.dmSnapshots()).length;
+    await seedDatabase(db);
+    expect((await db.social.dmSnapshots()).length).toBe(before);
   });
 });
 
@@ -259,9 +259,9 @@ describe('social post queue', () => {
     ).toThrow();
   });
 
-  test('enqueue persists and queued() returns only queued posts newest-first', () => {
-    db = openDb(':memory:');
-    db.socialPosts.enqueue({
+  test('enqueue persists and queued() returns only queued posts newest-first', async () => {
+    db = await openDb(':memory:');
+    await db.socialPosts.enqueue({
       id: 'p1',
       caption: 'first',
       mediaUrl: null,
@@ -270,7 +270,7 @@ describe('social post queue', () => {
       scheduledFor: null,
       createdAt: '2026-06-13T10:00:00Z',
     });
-    db.socialPosts.enqueue({
+    await db.socialPosts.enqueue({
       id: 'p2',
       caption: 'second',
       mediaUrl: 'https://cdn/x.jpg',
@@ -279,9 +279,9 @@ describe('social post queue', () => {
       scheduledFor: '2026-06-20T09:00:00Z',
       createdAt: '2026-06-13T11:00:00Z',
     });
-    const queued = db.socialPosts.queued();
+    const queued = await db.socialPosts.queued();
     expect(queued.map((p) => p.id)).toEqual(['p2', 'p1']);
     expect(queued[0].platforms).toEqual(['twitter']);
-    expect(db.socialPosts.all()).toHaveLength(2);
+    expect(await db.socialPosts.all()).toHaveLength(2);
   });
 });
