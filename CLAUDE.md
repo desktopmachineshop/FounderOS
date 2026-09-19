@@ -100,6 +100,35 @@ Copy + URL live once in `lib/cohort.ts` (`COHORT_URL`, `COHORT_CTA`,
 
 Contract lives in `tests/cohort.test.ts`.
 
+## Deployment: two hosts, one database (2026-09-19)
+
+Production runs on **two machines sharing one Postgres** — see
+`docs/DEPLOYMENT.md`. This is forced, not preferred: six connectors
+(`local-stack`, `wispr`, `whatsapp`, `obsidian`, `gbrain`, and zernio's account
+map) read local files/ports and cannot run in the cloud; the ManyChat webhook
+and scheduled runs need a public always-on URL and cannot run on a laptop.
+
+- `lib/sql/` — `SqlDriver` with SQLite + Postgres drivers. The schema and every
+  query are written **once in SQLite dialect**; `lib/sql/dialect.ts` translates
+  (`?`→`$n`, `INSERT OR REPLACE`→`ON CONFLICT`, `rowid`→`seq`, `REAL`→`DOUBLE
+  PRECISION`). Never fork a query per backend — extend the translator.
+- **The repository layer is async.** Every `db.*` method returns a Promise.
+  `getDb()` returns `Promise<FounderDb>` and memoizes the promise.
+- Backend chosen by `DATABASE_URL` (postgres) else `FOUNDER_OS_DB` (SQLite).
+- `tests/postgres-parity.test.ts` runs the real schema + seed + every repo read
+  against both backends. It **skips** without `TEST_DATABASE_URL`, so run
+  `TEST_DATABASE_URL=postgres://… npm test` after touching `lib/db.ts` —
+  the SQLite-only suite cannot catch a Postgres-only break.
+- `lib/media-jobs.ts` + `lib/media-runner.ts` + `scripts/media-worker.ts` —
+  video work queued in the cloud, executed on the workstation. Job kinds are a
+  **closed set** with validated relative paths; there is deliberately no kind
+  carrying a command, because the worker executes what it claims. Keep it that
+  way — `tests/media-jobs.test.ts` holds the line.
+- Worker auth (`lib/worker-auth.ts`) **fails closed**: no
+  `FOUNDER_OS_WORKER_TOKEN` means 503, never open.
+- Scripts under `scripts/` run through tsx as **CJS** — no top-level await;
+  wrap in `main()`.
+
 ## Conventions
 
 - TDD: failing test first, then implementation. Tests live in `tests/`,

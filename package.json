@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/media-worker.ts",
+    "migrate:postgres": "tsx scripts/migrate-to-postgres.ts",
     "brain:docs": "tsx scripts/generate-brain-docs.ts"
   },
   "dependencies": {

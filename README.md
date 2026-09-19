@@ -183,7 +183,8 @@ honest "not configured" mode. `.env.local` is gitignored.
 
 - **Next.js 14** (App Router, server components) plus **TypeScript**
 - **Tailwind CSS**: monochrome "Monolith" theme with pickable colorways
-- **better-sqlite3**: seeded local store (WAL)
+- **better-sqlite3** / **Postgres**: one repository layer over both — a
+  seeded local file on the workstation, managed Postgres in the cloud
 - **Zod**: schema validation at every boundary
 - **Vitest**: test suite
 - **Vercel AI SDK**: agent LLM calls
@@ -203,30 +204,42 @@ so they never touch the seeded dev DB.
 
 ---
 
-## Deploying to Railway
+## Deploying: two hosts, one database
 
-The repo ships a `railway.json` (Nixpacks build, `npm run build`, `npm start`,
-healthcheck on `/`) and pins Node 22 via `.node-version` / `engines`, so a
-fresh Railway service needs no build or start settings.
+The production build runs in **two places at once**, because two sets of things
+are physically bound to different machines:
 
-1. Create a Railway project and add a service from this GitHub repo.
-2. Generate a public domain for the service (Settings > Networking). The app
-   serves on the `PORT` Railway injects.
-3. Optional but recommended: attach a volume at `/data` and set
-   `FOUNDER_OS_DB=/data/founder-os.db` so the SQLite store (agent runs, tasks,
-   captured notes) survives redeploys. Without it the DB re-seeds on every
-   deploy, which is fine for a read-only demo.
-4. Optional: set `FOUNDER_OS_ACCESS_TOKEN` to put the whole instance behind a
-   token challenge. Leave it unset for the public demo.
-5. Add any connector credentials from `.env.example` as service variables.
-   Without them every connector reports honest "not configured" status.
-6. Do not set `NODE_ENV` as a service variable. Railway passes variables into
-   the build, and `NODE_ENV=production` makes `npm ci` skip devDependencies
-   (tailwindcss, typescript), so `next build` fails. `next start` already runs
-   in production mode without it.
+- **The workstation** holds the footage, the editor, Remotion, whisper and the
+  local knowledge store. Six connectors read local files, localhost ports or
+  macOS app containers, so they cannot run in the cloud at all.
+- **The cloud (Railway)** is always on and has a public URL, which the ManyChat
+  webhook and any scheduled agent run require. A laptop cannot provide either.
 
-The seeded demo needs no other configuration; the first request seeds the
-database.
+Both halves run the same code against **one managed Postgres**, so neither is a
+copy of the other. Video work crosses the gap as jobs: the cloud instance queues
+a render, and `npm run worker` on the workstation claims it, runs it locally and
+reports the result back.
+
+```bash
+# cloud: DATABASE_URL, FOUNDER_OS_ACCESS_TOKEN, FOUNDER_OS_WORKER_TOKEN
+# workstation:
+npm run dev               # the UI, against the shared database
+npm run worker            # claims and runs video jobs
+npm run migrate:postgres  # move an existing SQLite store into Postgres
+```
+
+The repo ships `railway.json` (Nixpacks build, `npm run build`, `npm start`,
+healthcheck on `/`) and pins Node 22, so a fresh Railway service needs no build
+or start settings. One trap worth repeating: **do not set `NODE_ENV`** as a
+service variable — Railway passes it into the build, and `NODE_ENV=production`
+makes `npm ci` skip devDependencies, so `next build` fails.
+
+**With `DATABASE_URL` unset nothing changes**: the app opens a local SQLite file
+and seeds it, which is what the public demo runs on.
+
+**[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) is the full guide** — the
+connector-by-connector map of what runs where, both setup paths, the migration,
+and the known gaps.
 
 ---
 
