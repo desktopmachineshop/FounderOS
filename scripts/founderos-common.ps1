@@ -91,3 +91,28 @@ function Assert-BackupDir {
     }
     return (Resolve-Path $Path).Path
 }
+
+# Parse a .env file into a hashtable of key -> value, with inline comments
+# stripped. .env.example writes things like
+#
+#   STRIPE_SECRET_KEY=            # full client implemented
+#
+# so a naive parse reads the comment as the value, and it declares some keys
+# (PAYPAL_CLIENT_ID) twice with a comment on only one of them. Both make a
+# blank template entry look like a filled-in credential.
+function Get-EnvPairs {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $pairs = @{}
+    if (-not (Test-Path $Path)) { return $pairs }
+    foreach ($line in Get-Content $Path) {
+        if ($line -notmatch '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') { continue }
+        $key = $Matches[1]
+        $value = $Matches[2]
+        # Drop a trailing comment, then anything that was only a comment.
+        $value = ($value -replace '\s+#.*$', '').Trim()
+        if ($value.StartsWith('#')) { $value = '' }
+        $pairs[$key] = $value
+    }
+    return $pairs
+}

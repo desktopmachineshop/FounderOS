@@ -77,31 +77,21 @@ try {
     }
     if ($restored -eq 0) { throw "Nothing was restored — every store listed in the manifest was missing." }
 
-    # .env.example ships some non-empty defaults (INBOX_1_HOST, for one), so
-    # "does it have any values" cannot tell a filled-in file from a fresh copy
-    # of the template. Compare against the template instead: a real credential
-    # is a key whose value differs from what .env.example ships.
+    # Compare .env.local against the template rather than asking "does it have
+    # any values": .env.example ships real defaults (INBOX_1_HOST), so a fresh
+    # copy of it is full of values while holding no credentials at all.
     $envLocal = Join-Path $repo '.env.local'
-    $envExample = Join-Path $repo '.env.example'
-    $template = @{}
-    if (Test-Path $envExample) {
-        foreach ($line in Get-Content $envExample) {
-            if ($line -match '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') { $template[$Matches[1]] = $Matches[2].Trim() }
-        }
-    }
+    $template = Get-EnvPairs (Join-Path $repo '.env.example')
+    $local = Get-EnvPairs $envLocal
     $needsSecrets = $true
-    if (Test-Path $envLocal) {
-        foreach ($line in Get-Content $envLocal) {
-            if ($line -notmatch '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') { continue }
-            $key = $Matches[1]
-            $value = $Matches[2].Trim()
-            if (-not $value) { continue }
-            # Written by bootstrap.ps1 as a Windows default, not a credential.
-            if ($key -eq 'BRAIN_PROVIDER') { continue }
-            if ($template.ContainsKey($key) -and $template[$key] -eq $value) { continue }
-            $needsSecrets = $false
-            break
-        }
+    foreach ($key in $local.Keys) {
+        $value = $local[$key]
+        if (-not $value) { continue }
+        # Written by bootstrap.ps1 as a Windows default, not a credential.
+        if ($key -eq 'BRAIN_PROVIDER') { continue }
+        if ($template.ContainsKey($key) -and $template[$key] -eq $value) { continue }
+        $needsSecrets = $false
+        break
     }
     Write-Host ""
     if ($needsSecrets) {
