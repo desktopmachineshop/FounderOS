@@ -105,6 +105,8 @@ export const MediaJobSchema = z.object({
 
 export type MediaJobKind = z.infer<typeof MediaJobKindSchema>;
 export type MediaJobSpec = z.infer<typeof MediaJobSpecSchema>;
+/** Before defaults are applied — what a caller may legitimately pass in. */
+export type MediaJobSpecInput = z.input<typeof MediaJobSpecSchema>;
 export type MediaJobStatus = z.infer<typeof MediaJobStatusSchema>;
 export type MediaJob = z.infer<typeof MediaJobSchema>;
 
@@ -117,7 +119,7 @@ export const STALE_CLAIM_MS = 15 * 60 * 1000;
 
 /** Build a queued job, filling in the bookkeeping. */
 export function newMediaJob(input: {
-  spec: MediaJobSpec;
+  spec: MediaJobSpecInput;
   id?: string;
   priority?: number;
   maxAttempts?: number;
