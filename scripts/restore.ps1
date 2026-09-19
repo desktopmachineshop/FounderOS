@@ -77,13 +77,31 @@ try {
     }
     if ($restored -eq 0) { throw "Nothing was restored — every store listed in the manifest was missing." }
 
+    # .env.example ships some non-empty defaults (INBOX_1_HOST, for one), so
+    # "does it have any values" cannot tell a filled-in file from a fresh copy
+    # of the template. Compare against the template instead: a real credential
+    # is a key whose value differs from what .env.example ships.
     $envLocal = Join-Path $repo '.env.local'
+    $envExample = Join-Path $repo '.env.example'
+    $template = @{}
+    if (Test-Path $envExample) {
+        foreach ($line in Get-Content $envExample) {
+            if ($line -match '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') { $template[$Matches[1]] = $Matches[2].Trim() }
+        }
+    }
     $needsSecrets = $true
     if (Test-Path $envLocal) {
-        # A file copied straight from .env.example has every value blank; treat
-        # that as "not restored yet" rather than assuming it's the real thing.
-        $filled = Get-Content $envLocal | Where-Object { $_ -match '^\s*[A-Z][A-Z0-9_]*=\S' }
-        if ($filled) { $needsSecrets = $false }
+        foreach ($line in Get-Content $envLocal) {
+            if ($line -notmatch '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') { continue }
+            $key = $Matches[1]
+            $value = $Matches[2].Trim()
+            if (-not $value) { continue }
+            # Written by bootstrap.ps1 as a Windows default, not a credential.
+            if ($key -eq 'BRAIN_PROVIDER') { continue }
+            if ($template.ContainsKey($key) -and $template[$key] -eq $value) { continue }
+            $needsSecrets = $false
+            break
+        }
     }
     Write-Host ""
     if ($needsSecrets) {

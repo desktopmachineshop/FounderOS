@@ -84,7 +84,7 @@ try {
 
     Write-Host "`nReady." -ForegroundColor Cyan
     Write-Host "  npm run dev     ->  http://localhost:4100   (DB seeds itself on first request)"
-    Write-Host "  .\scripts\restore.ps1   ->  pull your DB snapshot back from Google Drive"
+    Write-Host "  scripts\founderos restore   ->  pull your databases back from Google Drive"
     Write-Host ""
     Write-Host "  Paste your saved .env.local from your password manager over the" -ForegroundColor DarkGray
     Write-Host "  placeholder one to light the connectors back up." -ForegroundColor DarkGray
