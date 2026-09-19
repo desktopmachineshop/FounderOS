@@ -10,9 +10,10 @@ On the **old** PC:
 scripts\founderos backup
 ```
 
-That snapshots every database into Google Drive and puts `.env.local` on your
-clipboard — paste it into the `FounderOS .env.local` secure note in your
-password manager. Wait for Google Drive to finish syncing.
+That snapshots every database into Google Drive and writes `.env.local` there
+encrypted, as `env.local.enc`. It asks for your secrets passphrase (the first
+time, it asks you to choose one — save it in your password manager). Wait for
+Google Drive to finish syncing.
 
 On the **new** PC:
 
@@ -22,7 +23,7 @@ cd FounderOS
 scripts\founderos bootstrap -Restore
 ```
 
-Then paste `.env.local` back from your password manager, and:
+Enter the passphrase when asked, then:
 
 ```
 npm run dev
@@ -39,7 +40,7 @@ an install *yours*, so each one needs its own route:
 |---|---|---|---|
 | Node 22 | fnm | `bootstrap` installs it | Not a repo artifact |
 | `node_modules` | repo | `npm ci`, fresh each PC | `better-sqlite3` is a compiled native module — a copied `node_modules` from another machine is the single most common way to break this app |
-| `.env.local` | repo root | Password-manager secure note | Live Stripe key + email app passwords. Gitignored, and never written to Google Drive |
+| `.env.local` | repo root | `env.local.enc` in Google Drive, passphrase in your password manager | Live Stripe key + email app passwords. Gitignored, and never written to Drive in plaintext |
 | `data\*.db` | repo `data\` | `VACUUM INTO` snapshot in Google Drive | Your agent runs, tasks, notes, bank and ledger rows |
 
 ### Why the databases are snapshotted, not copied
@@ -58,13 +59,33 @@ backup writes a `manifest.json` listing what it captured, and `restore` reads
 that back — so adding a fourth store to `STORES` in `scripts/snapshot.ts` makes
 both directions handle it with no other changes.
 
-### Why `.env.local` never goes to Google Drive
+### Why `.env.local` goes to Drive encrypted
 
 It holds a live `STRIPE_SECRET_KEY`, your IMAP app passwords, and Slack, Notion,
-GHL and Wise tokens. A password manager is built for exactly this and the file
-is only ~6 KB of text. It is also why a private GitHub repo is a bad home for
-it: GitHub's push protection actively rejects `sk_live_…` and `xoxb-…`, and
-anything that does land in git history stays there after you rotate the key.
+GHL and Wise tokens — too sensitive for Drive in plaintext, and too long for a
+password-manager note. So it travels as `env.local.enc`, and only the short
+passphrase lives in your password manager.
+
+`scripts\secrets.ts` uses Node's built-in crypto: scrypt derives the key
+(deliberately slow, so guessing is expensive if the file ever leaks from Drive)
+and AES-256-GCM encrypts and authenticates, so a wrong passphrase is an error,
+never garbage. Nothing to install — it runs on the Node 22 these scripts
+already need.
+
+- The first backup asks for the passphrase twice and requires 12+ characters.
+- Later backups check you typed the same passphrase as the existing file
+  before replacing it, so a typo can't swap a file you can open for one you
+  can't.
+- Restore decrypts to a staging file first, so a wrong passphrase never
+  touches the `.env.local` already there, and it won't replace one that holds
+  credentials without `-Force`.
+- **Lose the passphrase and `env.local.enc` cannot be opened.** The databases
+  are unaffected; you'd re-issue the keys from each service's dashboard. To
+  start over with a new passphrase, delete `env.local.enc` and back up again.
+
+A private GitHub repo is a worse home for any of this: GitHub's push protection
+rejects `sk_live_…` and `xoxb-…`, and anything that lands in git history stays
+there after you rotate the key.
 
 ## Commands
 
@@ -75,14 +96,15 @@ process, so the move never depends on changing a machine setting.
 
 ```
 scripts\founderos bootstrap              Set up this PC. Safe to re-run.
-scripts\founderos bootstrap -Restore     ...and pull the databases back too.
+scripts\founderos bootstrap -Restore     ...and restore databases + .env.local too.
 
-scripts\founderos backup                 Snapshot databases; .env.local to clipboard.
-scripts\founderos backup -SkipSecrets    Databases only.
+scripts\founderos backup                 Snapshot databases; encrypt .env.local.
+scripts\founderos backup -SkipSecrets    Databases only, no passphrase prompt.
 scripts\founderos backup -KeepDays 90    Keep timestamped snapshots longer (default 30).
 
-scripts\founderos restore                Restore databases from the snapshot folder.
+scripts\founderos restore                Restore databases; decrypt .env.local.
 scripts\founderos restore -Force         ...replacing existing ones (renamed aside, not deleted).
+scripts\founderos restore -SkipSecrets   Databases only.
 ```
 
 The snapshot folder defaults to `H:\My Drive\FounderOS` — the business Google
@@ -112,8 +134,9 @@ left alone.
 
 **`BRAIN_PROVIDER=stub`.** `BRAIN_PROVIDER` defaults to `gbrain`, which shells
 out to a `gbrain` CLI that only exists on the author's macOS setup. `bootstrap`
-writes the stub setting into a newly created `.env.local`; if you paste a saved
-`.env.local` over it, keep that line.
+writes the stub setting into a newly created `.env.local`, and because backups
+encrypt that same file, a restored `.env.local` carries the line with it. Keep
+it if you ever edit the file by hand.
 
 **Connectors that report `error` or `not configured` are working as designed.**
 The upstream repo is macOS-shaped: `lib/creds.ts` falls back to
