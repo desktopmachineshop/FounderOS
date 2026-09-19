@@ -42,7 +42,7 @@ exit /b %ERRORLEVEL%
 :usage
 echo.
 echo   scripts\founderos bootstrap   Set up this PC ^(fnm, Node 22, npm ci, .env.local^)
-echo   scripts\founderos backup      Snapshot the databases + copy .env.local to clipboard
-echo   scripts\founderos restore     Pull the databases back from the snapshot folder
+echo   scripts\founderos backup      Snapshot the databases + encrypt .env.local to the backup folder
+echo   scripts\founderos restore     Restore the databases + decrypt .env.local from the backup folder
 echo.
 exit /b 1

@@ -84,10 +84,8 @@ try {
 
     Write-Host "`nReady." -ForegroundColor Cyan
     Write-Host "  npm run dev     ->  http://localhost:4100   (DB seeds itself on first request)"
-    Write-Host "  scripts\founderos restore   ->  pull your databases back from Google Drive"
+    Write-Host "  scripts\founderos restore   ->  pull databases + encrypted .env.local back from Google Drive"
     Write-Host ""
-    Write-Host "  Paste your saved .env.local from your password manager over the" -ForegroundColor DarkGray
-    Write-Host "  placeholder one to light the connectors back up." -ForegroundColor DarkGray
     Write-Host "  Use 'npm run dev' locally, not 'npm start' — the start script uses" -ForegroundColor DarkGray
     Write-Host "  POSIX `${PORT:-4100} expansion that cmd.exe passes through literally." -ForegroundColor DarkGray
 }

@@ -1,30 +1,32 @@
 ﻿<#
 .SYNOPSIS
-    Snapshot the FounderOS databases to Google Drive, and hand .env.local to your
-    password manager.
+    Snapshot the FounderOS databases and an encrypted .env.local to Google Drive.
 
 .DESCRIPTION
-    The two things `git push` deliberately leaves behind, handled separately
-    because they carry very different risk:
+    The two things `git push` deliberately leaves behind:
 
-      data\*.db      -> VACUUM INTO snapshots in Google Drive. All three stores
-                        (founder-os, bank, ledger). Business content, no
-                        credentials.
-      .env.local     -> copied to your clipboard only, for pasting into a
-                        password-manager secure note. It holds a live Stripe key
-                        and your email app passwords, so this script never
-                        writes it anywhere outside the repo.
+      data\*.db      -> VACUUM INTO snapshots. All three stores (founder-os,
+                        bank, ledger). Business content, no credentials.
+      .env.local     -> env.local.enc, AES-256-GCM under a passphrase you keep
+                        in your password manager. It holds a live Stripe key and
+                        your email app passwords, so it never reaches Drive in
+                        plaintext.
+
+    The first run asks you to choose the passphrase; later runs check you typed
+    the same one before replacing the file.
 
 .EXAMPLE
     .\scripts\backup.ps1
     .\scripts\backup.ps1 -BackupDir 'D:\sync\FounderOS' -KeepDays 90
-    .\scripts\backup.ps1 -SkipSecrets        # databases only, no clipboard step
+    .\scripts\backup.ps1 -SkipSecrets        # databases only, no passphrase prompt
 #>
 [CmdletBinding()]
 param(
     [string]$BackupDir,
     [int]$KeepDays = 30,
-    [switch]$SkipSecrets
+    [switch]$SkipSecrets,
+    # For unattended use (e.g. read from a vault). Omit to be prompted.
+    [System.Security.SecureString]$Passphrase
 )
 
 Set-StrictMode -Version Latest
@@ -60,31 +62,41 @@ try {
         }
     }
 
+    # The databases are already safe by this point, so abandoning the passphrase
+    # prompt below never costs a DB backup.
     if (-not $SkipSecrets) {
         $envLocal = Join-Path $repo '.env.local'
+        $encrypted = Join-Path $dest $SecretsFileName
         if (-not (Test-Path $envLocal)) {
             Write-Warning "No .env.local to back up (fine if you haven't wired any connectors yet)."
         } else {
-            $size = [math]::Round((Get-Item $envLocal).Length / 1KB, 1)
-            $copied = $true
-            try {
-                Get-Content $envLocal -Raw | Set-Clipboard
-            } catch {
-                # Set-Clipboard requires an STA thread; a host running MTA throws
-                # here. The databases are already safe, so degrade to a pointer.
-                $copied = $false
-            }
             Write-Host ""
-            if ($copied) {
-                Write-Host ".env.local ($size KB) is on your clipboard." -ForegroundColor Yellow
-            } else {
-                Write-Host "Could not reach the clipboard from this host. Open it yourself:" -ForegroundColor Yellow
-                Write-Host "  $envLocal" -ForegroundColor Yellow
+            $existing = Test-Path $encrypted
+            if (-not $Passphrase) {
+                if ($existing) {
+                    $Passphrase = Read-Passphrase -Prompt 'Secrets passphrase'
+                } else {
+                    Write-Host "First secrets backup: choose a passphrase to encrypt .env.local." -ForegroundColor Yellow
+                    Write-Host "  Save it in your password manager. Without it the file cannot be opened." -ForegroundColor Yellow
+                    $Passphrase = Read-Passphrase -Prompt 'New secrets passphrase' -Confirm
+                }
             }
-            Write-Host "  Paste it into your password manager as a secure note:" -ForegroundColor Yellow
-            Write-Host "    FounderOS .env.local" -ForegroundColor Yellow
-            Write-Host "  It is deliberately NOT written to Google Drive — it holds a live" -ForegroundColor DarkGray
-            Write-Host "  Stripe secret key and your email app passwords." -ForegroundColor DarkGray
+
+            if ($existing) {
+                # Hold one passphrase across backups: re-encrypting under a
+                # mistyped one would quietly swap a file you can open for one you
+                # can't.
+                $code = Invoke-SecretsTool -RepoRoot $repo -Passphrase $Passphrase -Arguments @('verify', $encrypted)
+                if ($code -eq 2) { throw "That doesn't match the passphrase of the existing $SecretsFileName. Nothing was changed." }
+                if ($code -ne 0) { throw "Could not check the existing $SecretsFileName (exit $code)." }
+            } elseif ((ConvertFrom-SecureStringPlain $Passphrase).Length -lt 12) {
+                # The encrypted file sits in cloud storage indefinitely; a short
+                # passphrase is the only realistic way it gets opened by someone else.
+                throw 'Use a passphrase of at least 12 characters. Nothing was written.'
+            }
+
+            $code = Invoke-SecretsTool -RepoRoot $repo -Passphrase $Passphrase -Arguments @('encrypt', $envLocal, $encrypted)
+            if ($code -ne 0) { throw "Encrypting .env.local failed (exit $code)." }
         }
     }
 

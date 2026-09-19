@@ -125,3 +125,48 @@ function Get-EnvPairs {
     }
     return $pairs
 }
+
+# Name of the encrypted .env.local inside the backup folder.
+$script:SecretsFileName = 'env.local.enc'
+
+function ConvertFrom-SecureStringPlain {
+    param([Parameter(Mandatory)][System.Security.SecureString]$Secure)
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
+# Prompt without echo. -Confirm asks twice: a typo in a brand-new passphrase
+# would otherwise produce a backup nobody can ever open.
+function Read-Passphrase {
+    param([string]$Prompt = 'Passphrase', [switch]$Confirm)
+    $first = Read-Host -Prompt $Prompt -AsSecureString
+    if ($Confirm) {
+        $second = Read-Host -Prompt 'Type it again' -AsSecureString
+        if ((ConvertFrom-SecureStringPlain $first) -cne (ConvertFrom-SecureStringPlain $second)) {
+            throw 'Passphrases did not match. Nothing was written.'
+        }
+    }
+    return $first
+}
+
+# Runs scripts/secrets.ts with the passphrase on stdin rather than the command
+# line, where any process on the machine could read it. Returns the exit code:
+# 0 ok, 2 wrong passphrase, anything else a real failure.
+function Invoke-SecretsTool {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][System.Security.SecureString]$Passphrase,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+    $tsx = Join-Path $RepoRoot 'node_modules/tsx/dist/cli.mjs'
+    $tool = Join-Path $RepoRoot 'scripts/secrets.ts'
+    # Send base64, not the raw passphrase. PowerShell re-encodes pipes to native
+    # programs with the session's $OutputEncoding (a BOM under UTF-8, '?' for
+    # non-ASCII under ASCII), and that setting varies by terminal and can't be
+    # reliably overridden here. Base64 is ASCII, so it arrives intact everywhere.
+    $bytes = [Text.Encoding]::UTF8.GetBytes((ConvertFrom-SecureStringPlain $Passphrase))
+    # Out-Host keeps the tool's messages on screen and out of the return value.
+    [Convert]::ToBase64String($bytes) | & node $tsx $tool @Arguments | Out-Host
+    return $LASTEXITCODE
+}
