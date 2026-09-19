@@ -72,7 +72,7 @@ function Get-BackupDir {
     param([string]$Override)
     if ($Override) { return $Override }
     if ($env:FOUNDER_OS_BACKUP_DIR) { return $env:FOUNDER_OS_BACKUP_DIR }
-    return 'G:\My Drive\FounderOS'
+    return 'H:\My Drive\FounderOS'
 }
 
 # Google Drive for Desktop streams by default: if it isn't running, the whole
@@ -84,6 +84,15 @@ function Assert-BackupDir {
     $qualifier = if ($Path -match '^([A-Za-z]:)') { $Matches[1] } else { $null }
     if ($qualifier -and -not (Test-Path "$qualifier\")) {
         throw "Drive $qualifier is not mounted. Start Google Drive for Desktop and wait for it to appear, then retry. (Override with -BackupDir or `$env:FOUNDER_OS_BACKUP_DIR.)"
+    }
+    # Drive for Desktop mounts one letter per signed-in account, and the letters
+    # say nothing about which account is which. Show the volume label (which
+    # names the account) so a backup landing in the wrong Drive is visible.
+    if ($qualifier) {
+        $volume = Get-PSDrive -Name $qualifier.TrimEnd(':') -ErrorAction SilentlyContinue
+        if ($volume -and $volume.Description) {
+            Write-Host "Using $qualifier  ($($volume.Description))" -ForegroundColor DarkGray
+        }
     }
     if (-not (Test-Path $Path)) {
         if (-not $Create) { throw "Backup folder not found: $Path" }

@@ -43,7 +43,7 @@ try {
     Write-Host "Snapshotting to $dest" -ForegroundColor Cyan
     # Call tsx's entrypoint through node directly. The npx/npm .ps1 shims build
     # their argument list by string interpolation and choke on paths with spaces
-    # (which "G:\My Drive\..." always has).
+    # (which "H:\My Drive\..." always has).
     $tsx = Join-Path $repo 'node_modules/tsx/dist/cli.mjs'
     if (-not (Test-Path $tsx)) { throw "tsx is not installed. Run scripts/bootstrap.ps1 (or npm ci) first." }
     & node $tsx (Join-Path $PSScriptRoot 'snapshot.ts') $dest $stamp

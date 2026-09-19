@@ -85,9 +85,17 @@ scripts\founderos restore                Restore databases from the snapshot fol
 scripts\founderos restore -Force         ...replacing existing ones (renamed aside, not deleted).
 ```
 
-The snapshot folder defaults to `G:\My Drive\FounderOS`. Override it per-run
-with `-BackupDir`, or permanently with the `FOUNDER_OS_BACKUP_DIR` environment
-variable — useful when Google Drive mounts on a different letter.
+The snapshot folder defaults to `H:\My Drive\FounderOS` — the business Google
+account. Override it per-run with `-BackupDir`, or permanently with the
+`FOUNDER_OS_BACKUP_DIR` environment variable.
+
+**Check the letter on every new PC.** Google Drive for Desktop mounts one drive
+per signed-in account and hands out letters in sign-in order, so the business
+account is not guaranteed to be `H:`. After signing in, open Drive's
+Preferences → Google Drive and set the business account's drive letter to `H`. The
+scripts print the drive's volume label, which names the account (e.g. `Using H:
+(dave@desktopmachineshop.com -...)`), so a backup headed for the wrong account is
+visible.
 
 If Google Drive isn't running, its drive letter is simply absent. The scripts
 treat that as a hard error rather than creating a folder on a drive that
