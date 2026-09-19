@@ -36,6 +36,7 @@ export const ROWID_TABLES = [
   'broadcasts',
   'agent_tasks',
   'agent_crons',
+  'media_jobs',
 ] as const;
 
 const unquote = (name: string) => name.trim().replace(/^"(.*)"$/, '$1');

@@ -1,4 +1,11 @@
-import { openDriver, parsePrimaryKeys, type SqlDriver } from '@/lib/sql';
+import { openDriver, parsePrimaryKeys, type SqlDriver, type SqlValue } from '@/lib/sql';
+import {
+  MediaJobSchema,
+  STALE_CLAIM_MS,
+  type MediaJob,
+  type MediaJobKind,
+  type MediaJobStatus,
+} from '@/lib/media-jobs';
 import { isValidCron } from '@/lib/cron';
 import {
   AgentCronSchema,
@@ -317,6 +324,24 @@ CREATE TABLE IF NOT EXISTS skills (
   markdown TEXT NOT NULL DEFAULT '',
   ord INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS media_jobs (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  spec TEXT NOT NULL,
+  status TEXT NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 0,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  requested_by TEXT NOT NULL DEFAULT 'operator',
+  worker_id TEXT,
+  result TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  claimed_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_media_jobs_queue ON media_jobs (status, priority, created_at);
 `;
 
 /** Databases created before the hierarchy build lack these columns. */
@@ -1154,6 +1179,141 @@ export async function openDb(target: string) {
     },
   };
 
+  const rowToMediaJob = (r: any): MediaJob =>
+    MediaJobSchema.parse({
+      id: r.id,
+      spec: JSON.parse(r.spec),
+      status: r.status,
+      priority: r.priority,
+      attempts: r.attempts,
+      maxAttempts: r.max_attempts,
+      requestedBy: r.requested_by,
+      workerId: r.worker_id,
+      result: r.result ? JSON.parse(r.result) : null,
+      error: r.error,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      claimedAt: r.claimed_at,
+      finishedAt: r.finished_at,
+    });
+
+  /**
+   * The cloud/workstation work queue. Both halves reach it through the same
+   * repository because they share one database — that is the whole mechanism
+   * behind dispatched video work.
+   */
+  const mediaJobs = {
+    async enqueue(job: MediaJob): Promise<void> {
+      const j = MediaJobSchema.parse(job);
+      await db.run(
+        `INSERT OR REPLACE INTO media_jobs
+           (id, kind, spec, status, priority, attempts, max_attempts, requested_by, worker_id, result, error, created_at, updated_at, claimed_at, finished_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          j.id, j.spec.kind, JSON.stringify(j.spec), j.status, j.priority, j.attempts,
+          j.maxAttempts, j.requestedBy, j.workerId, j.result ? JSON.stringify(j.result) : null,
+          j.error, j.createdAt, j.updatedAt, j.claimedAt, j.finishedAt,
+        ],
+      );
+    },
+
+    async byId(id: string): Promise<MediaJob | null> {
+      const row = await db.get('SELECT * FROM media_jobs WHERE id = ?', [id]);
+      return row ? rowToMediaJob(row) : null;
+    },
+
+    async list(opts: { status?: MediaJobStatus; limit?: number } = {}): Promise<MediaJob[]> {
+      const limit = opts.limit ?? 100;
+      const rows = opts.status
+        ? await db.all(
+            'SELECT * FROM media_jobs WHERE status = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+            [opts.status, limit],
+          )
+        : await db.all('SELECT * FROM media_jobs ORDER BY created_at DESC, rowid DESC LIMIT ?', [limit]);
+      return rows.map(rowToMediaJob);
+    },
+
+    /**
+     * Take the next job this worker can run.
+     *
+     * Read-then-conditional-update rather than `FOR UPDATE SKIP LOCKED`, which
+     * SQLite has no answer for. The UPDATE is atomic on both backends and only
+     * matches while the row is still queued, so two workers racing for the same
+     * job produce one winner and one retry — no job runs twice.
+     */
+    async claim(opts: {
+      workerId: string;
+      kinds?: MediaJobKind[];
+      now?: string;
+    }): Promise<MediaJob | null> {
+      const at = opts.now ?? new Date().toISOString();
+      const kindFilter = opts.kinds?.length
+        ? ` AND kind IN (${opts.kinds.map(() => '?').join(', ')})`
+        : '';
+      const params: SqlValue[] = ['queued', ...(opts.kinds ?? [])];
+
+      // Bounded: each miss means another worker won that row, so the queue is
+      // draining, not looping.
+      for (let i = 0; i < 5; i += 1) {
+        const row = await db.get(
+          `SELECT id FROM media_jobs WHERE status = ?${kindFilter}
+           ORDER BY priority DESC, created_at ASC, rowid ASC LIMIT 1`,
+          params,
+        );
+        if (!row) return null;
+        const id = (row as { id: string }).id;
+        const { changes } = await db.run(
+          `UPDATE media_jobs SET status = 'claimed', worker_id = ?, claimed_at = ?, updated_at = ?
+           WHERE id = ? AND status = 'queued'`,
+          [opts.workerId, at, at, id],
+        );
+        if (changes === 1) return mediaJobs.byId(id);
+      }
+      return null;
+    },
+
+    /** Worker finished. False when the job was not claimed (or never existed). */
+    async complete(id: string, result: Record<string, unknown>, now?: string): Promise<boolean> {
+      const at = now ?? new Date().toISOString();
+      const { changes } = await db.run(
+        `UPDATE media_jobs SET status = 'done', result = ?, error = NULL, updated_at = ?, finished_at = ?
+         WHERE id = ? AND status = 'claimed'`,
+        [JSON.stringify(result), at, at, id],
+      );
+      return changes === 1;
+    },
+
+    /** Worker failed. Requeues until maxAttempts is spent, then gives up. */
+    async fail(id: string, error: string, now?: string): Promise<boolean> {
+      const at = now ?? new Date().toISOString();
+      const job = await mediaJobs.byId(id);
+      if (!job) return false;
+      const attempts = job.attempts + 1;
+      const spent = attempts >= job.maxAttempts;
+      await db.run(
+        `UPDATE media_jobs SET status = ?, attempts = ?, error = ?, worker_id = NULL,
+           claimed_at = NULL, updated_at = ?, finished_at = ? WHERE id = ?`,
+        [spent ? 'failed' : 'queued', attempts, error, at, spent ? at : null, id],
+      );
+      return true;
+    },
+
+    /**
+     * Release claims from workers that went away. Without this a laptop that
+     * slept mid-render strands the job forever.
+     */
+    async requeueStale(opts: { now?: string; staleAfterMs?: number } = {}): Promise<number> {
+      const at = opts.now ?? new Date().toISOString();
+      const cutoff = new Date(Date.parse(at) - (opts.staleAfterMs ?? STALE_CLAIM_MS)).toISOString();
+      const { changes } = await db.run(
+        `UPDATE media_jobs SET status = 'queued', worker_id = NULL, claimed_at = NULL, updated_at = ?
+         WHERE status = 'claimed' AND claimed_at < ?`,
+        [at, cutoff],
+      );
+      return changes;
+    },
+  };
+
   return {
     /** The dialect actually in use, so the UI can be honest about where it is. */
     dialect: db.dialect,
@@ -1180,6 +1340,7 @@ export async function openDb(target: string) {
     sopTasks,
     workflows,
     skills,
+    mediaJobs,
     close: () => db.close(),
   };
 }
