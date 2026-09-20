@@ -3,7 +3,7 @@ import type { FounderDb } from '@/lib/db';
 import type { RosterClient } from '@/lib/schemas';
 import { buildBrainGraph } from '@/lib/brain-graph';
 import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
-import { demoMemoryGraph, distillMemoryGraph, type MemoryGraph } from '@/lib/memory-core';
+import { fallbackMemoryGraph, distillMemoryGraph, type MemoryGraph } from '@/lib/memory-core';
 import { getDb } from '@/lib/data';
 import { PageHeader } from '@/components/PageHeader';
 import { BrainDump } from '@/components/BrainDump';
@@ -41,13 +41,14 @@ function memoryConstellation(): MemoryGraph {
   if (memoryCache && Date.now() - memoryCache.at < MEMORY_TTL_MS) return memoryCache.value;
   let value: MemoryGraph;
   try {
-    // A real store on disk always wins. A fresh clone has none, and an empty
-    // core renders the whole graph as a bare dot, so fall back to the generated
-    // stand-in: same layout, generic knowledge domains, no personal data.
+    // A real store on disk always wins. With none, the generated stand-in is
+    // DEMO-ONLY: it invents a constellation of notes the operator never wrote,
+    // which reads as his own thinking. Off the demo that is empty, and the page
+    // says it needs a brain-store.
     const distilled = distillMemoryGraph(buildBrainGraph(readStoreNotes()));
-    value = distilled.nodes.length > 0 ? distilled : demoMemoryGraph();
+    value = distilled.nodes.length > 0 ? distilled : fallbackMemoryGraph();
   } catch {
-    value = demoMemoryGraph();
+    value = fallbackMemoryGraph();
   }
   memoryCache = { at: Date.now(), value };
   return value;

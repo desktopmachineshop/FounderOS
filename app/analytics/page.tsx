@@ -34,20 +34,18 @@ function tileValue(value: number, unit: string): { main: string; small: string }
   return { main: value.toLocaleString('en-US'), small: unit };
 }
 
-// Deterministic spark shape per metric id until per-metric history lands.
-function sparkFor(id: string, value: number): number[] {
-  const seed = [...id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return Array.from({ length: 7 }, (_, i) => {
-    const wobble = ((seed * (i + 3)) % 17) / 17 - 0.5;
-    return Math.max(0, value * (0.82 + 0.18 * (i / 6) + wobble * 0.08));
-  });
-}
-
-// Deterministic rising bars per channel for the by-platform cards.
-function barsFor(seed: string): number[] {
-  const base = [...seed].reduce((s, c) => s + c.charCodeAt(0), 0);
-  return Array.from({ length: 12 }, (_, i) => 4 + i * 1.3 + ((base + i * 7) % 5));
-}
+/*
+ * There were two chart-shape generators here, both derived from a hash of the
+ * metric name: a sparkline per tile, and a set of always-climbing bars per
+ * platform card — bars that rose by construction no matter what the
+ * number underneath was doing.
+ *
+ * They are gone rather than replaced. Neither metric has per-item history to
+ * draw yet, and a shape that implies a trend nobody measured is the same lie as
+ * a seeded figure, drawn instead of written. When real history exists (the
+ * snapshot tables already store it for followers), the chart comes back reading
+ * from that.
+ */
 
 function fmtShort(iso: string): string {
   return new Date(`${iso}T00:00:00Z`)
@@ -109,8 +107,7 @@ function MetricCard({ tile }: { tile: MetricTile }) {
         {main}
         {small && <small className="text-[11px] font-normal tracking-normal text-os-dim">{small}</small>}
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <Spark data={sparkFor(tile.id, tile.value)} w={96} h={26} />
+      <div className="flex items-end justify-end gap-2">
         <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-os-dim">{tile.source}</span>
       </div>
     </div>
@@ -371,7 +368,6 @@ export default async function AnalyticsPage() {
                   <div className="font-mono text-[24px] font-semibold tracking-[-0.02em]">
                     {formatFollowers(p.followers)}
                   </div>
-                  <MiniBars bars={barsFor(p.platform)} />
                 </div>
                 <div className="mt-3 h-1 overflow-hidden rounded-sm-t bg-os-surface2">
                   <div className="h-full bg-os-accent opacity-60" style={{ width: `${share}%` }} />

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { parseBeehiivPosts } from '@/lib/connectors/beehiiv';
 import {
   getNewsletters,
@@ -81,11 +81,28 @@ describe('parseBeehiivPosts — REST posts+stats to Newsletter[]', () => {
   });
 });
 
-describe('getNewsletters — live with seeded fallback', () => {
-  test('falls back to the seed when no key is configured', async () => {
+describe('getNewsletters — live, with a DEMO-ONLY fallback', () => {
+  const originalDemo = process.env.FOUNDER_OS_DEMO;
+  afterEach(() => {
+    if (originalDemo === undefined) delete process.env.FOUNDER_OS_DEMO;
+    else process.env.FOUNDER_OS_DEMO = originalDemo;
+  });
+
+  test('falls back to the seed for the demo', async () => {
+    process.env.FOUNDER_OS_DEMO = '1';
     const list = await getNewsletters({}); // empty env: no BEEHIIV_API_KEY
     expect(list).toEqual(SEED_NEWSLETTERS);
     expect(list.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The seeded issues carry invented open and click rates. Handing those to an
+   * operator who simply has no Beehiiv key would present fiction as his own
+   * newsletter performance.
+   */
+  test('returns nothing at all when the demo is off', async () => {
+    delete process.env.FOUNDER_OS_DEMO;
+    expect(await getNewsletters({})).toEqual([]);
   });
 
   test('the seed is a valid, sent-ordered set', () => {
