@@ -171,5 +171,12 @@ Multiple Claude Code sessions work on this repo concurrently:
 
 - Commit small checkpoints often (`git log --oneline` to see where others are).
 - Run `npm test && npm run typecheck` before claiming anything done.
+- **CI does not start itself on our branches.** GitHub creates no workflow run
+  for a `push` or `pull_request` event made with the Claude App's token
+  (`workflow_dispatch` and `repository_dispatch` are the only exceptions), so
+  a bot-authored PR sits with no checks unless one is asked for. After pushing,
+  dispatch it: `gh workflow run ci.yml --ref <branch>`, then read the result —
+  an undispatched PR is unverified, not green. The triggers in
+  `.github/workflows/ci.yml` are correct and fire normally for a human push.
 - Don't kill the dev server on 4100 — another session may be using it.
 - Leave handoff notes in `docs/` if you stop mid-feature.
