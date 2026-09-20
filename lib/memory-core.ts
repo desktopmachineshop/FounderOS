@@ -14,7 +14,7 @@ import type { BrainGraphEdge, BrainGraphNode } from '@/lib/schemas';
  * component runs per animation frame. Pure + deterministic; no React, no DOM.
  */
 
-import { demoDataEnabled } from '@/lib/data';
+import { demoDataEnabled } from '@/lib/demo-mode';
 export type MemoryNode = {
   id: string;
   type: 'folder' | 'page';

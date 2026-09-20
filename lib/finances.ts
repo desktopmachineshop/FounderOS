@@ -1,4 +1,4 @@
-import { demoDataEnabled } from '@/lib/data';
+import { demoDataEnabled } from '@/lib/demo-mode';
 /**
  * Finances domain — pure, real-ready. Income flows through a processor/account
  * registry (Stripe wired today; PayPal, FanBasis ×2, Wise ×2 are honest pending

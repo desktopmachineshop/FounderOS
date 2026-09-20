@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import { openDb, type FounderDb } from '@/lib/db';
 import { isPostgresUrl } from '@/lib/sql';
 import { seedDatabase } from '@/lib/seed';
+import { demoDataEnabled } from '@/lib/demo-mode';
+
+// Re-exported so existing callers keep importing it from here.
+export { demoDataEnabled };
 
 /**
  * App-level singleton. Every page and API route reads through this repository
@@ -17,24 +21,6 @@ import { seedDatabase } from '@/lib/seed';
  *
  * `DATABASE_URL` wins when both are set, because that is the shared store.
  */
-/**
- * Is demo data switched on?
- *
- * Upstream seeds every table on first touch so a fresh clone "boots looking
- * alive". For an operator's own dashboard that is a hazard, not a feature: a
- * seeded revenue figure is indistinguishable from a real one at a glance. So
- * seeding is opt-in and **off by default**.
- *
- * Only explicit truthy spellings count. `FOUNDER_OS_DEMO=false` must not enable
- * demo data — a variable set to a falsy word is the likeliest way for someone
- * to believe they turned it off.
- */
-const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
-
-export function demoDataEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return TRUTHY.has((env.FOUNDER_OS_DEMO ?? '').trim().toLowerCase());
-}
-
 export function databaseTarget(env: NodeJS.ProcessEnv = process.env): string {
   const url = env.DATABASE_URL?.trim();
   if (url && isPostgresUrl(url)) return url;

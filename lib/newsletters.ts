@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { beehiivPosts, type Newsletter } from '@/lib/connectors/beehiiv';
-import { demoDataEnabled } from '@/lib/data';
+import { demoDataEnabled } from '@/lib/demo-mode';
 
 export type { Newsletter };
 
