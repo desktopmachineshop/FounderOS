@@ -129,3 +129,104 @@ export function Spark({ data, w = 72, h = 22 }: { data: number[]; w?: number; h?
     </svg>
   );
 }
+
+/**
+ * The honest empty state.
+ *
+ * Upstream's whole trick is that seeded data makes an unwired panel look alive.
+ * A blank box would be no better — it says nothing about why it is blank. This
+ * says what the panel WOULD show, which source it needs, and the variable that
+ * switches it on, so the dashboard doubles as the list of what is left to wire.
+ *
+ * It deliberately cannot imply data: no figures of its own, and never an `ok`
+ * dot, which would read as "connected" on a panel that has nothing.
+ */
+export type NotWiredInput = {
+  /** What this panel would show once wired. */
+  what: string;
+  /** The source it needs, in human terms. */
+  needs: string;
+  /** The variables that switch it on. Omit when it is not a pasted key. */
+  env?: string[];
+  /** The source's own honest message, when it has one (e.g. an expired key). */
+  detail?: string | null;
+};
+
+export function notWiredCopy({ what, needs, env, detail }: NotWiredInput): {
+  title: string;
+  line: string;
+  envLine: string | null;
+  detail: string | null;
+} {
+  const source = needs.trim().replace(/\.+$/, '');
+  return {
+    title: what,
+    line: `Needs ${source}.`,
+    envLine: env && env.length > 0 ? `Set ${env.join(', ')} in .env.local.` : null,
+    detail: detail && detail.trim() !== '' ? detail : null,
+  };
+}
+
+export function NotWired(props: NotWiredInput) {
+  const { title, line, envLine, detail } = notWiredCopy(props);
+  return (
+    <div className="border border-dashed border-os-border-strong px-4 py-5">
+      <div className="flex items-center gap-2">
+        <Dot state="off" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.26em] text-os-dim">
+          Not wired
+        </span>
+      </div>
+      <p className="mt-2.5 font-mono text-[12px] text-os-muted">{title}</p>
+      <p className="mt-1 font-mono text-[11px] text-os-dim">{line}</p>
+      {envLine && <p className="mt-1 font-mono text-[11px] text-os-dim">{envLine}</p>}
+      {detail && <p className="mt-2 font-mono text-[11px] text-os-warn">{detail}</p>}
+    </div>
+  );
+}
+
+/**
+ * The other empty state: nothing written yet.
+ *
+ * `NotWired` says "this needs a source". Plenty of views need no source at all
+ * — the roadmap, the reference model, tasks — they are the operator's to fill.
+ * Telling him those need an integration would send him hunting for a connector
+ * that does not exist, which is its own species of dishonesty.
+ *
+ * So: same visual language, different claim, and deliberately no env var.
+ */
+export type NoEntriesInput = {
+  /** What would be listed here. */
+  what: string;
+  /** How entries arrive, when that is not obvious. */
+  hint?: string | null;
+};
+
+export function noEntriesCopy({ what, hint }: NoEntriesInput): {
+  title: string;
+  line: string;
+  hint: string | null;
+} {
+  return {
+    title: what,
+    line: 'Nothing here yet.',
+    hint: hint && hint.trim() !== '' ? hint : null,
+  };
+}
+
+export function NoEntries(props: NoEntriesInput) {
+  const { title, line, hint } = noEntriesCopy(props);
+  return (
+    <div className="border border-dashed border-os-border-strong px-4 py-5">
+      <div className="flex items-center gap-2">
+        <Dot state="off" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.26em] text-os-dim">
+          Empty
+        </span>
+      </div>
+      <p className="mt-2.5 font-mono text-[12px] text-os-muted">{title}</p>
+      <p className="mt-1 font-mono text-[11px] text-os-dim">{line}</p>
+      {hint && <p className="mt-1 font-mono text-[11px] text-os-dim">{hint}</p>}
+    </div>
+  );
+}

@@ -14,6 +14,7 @@ import type { BrainGraphEdge, BrainGraphNode } from '@/lib/schemas';
  * component runs per animation frame. Pure + deterministic; no React, no DOM.
  */
 
+import { demoDataEnabled } from '@/lib/demo-mode';
 export type MemoryNode = {
   id: string;
   type: 'folder' | 'page';
@@ -562,6 +563,19 @@ export function lerpRect(cur: Rect, target: Rect, t: number): Rect {
  * knowledge domains so the core still reads as a living second brain. Local dev
  * always prefers the real distilled store; this is only the empty-store fallback.
  */
+/**
+ * The generated stand-in constellation, but only for the demo.
+ *
+ * `demoMemoryGraph()` invents ~120 notes across plausible knowledge domains. On
+ * a fresh instance with no brain-store that filled /brain with a rich graph of
+ * knowledge the operator has never written — the most convincing fabrication in
+ * the app, because it looks like his own thinking. With demo off this is empty
+ * and the page says it needs a brain-store.
+ */
+export function fallbackMemoryGraph(): MemoryGraph {
+  return demoDataEnabled() ? demoMemoryGraph() : { nodes: [], edges: [] };
+}
+
 export function demoMemoryGraph(): MemoryGraph {
   const rnd = (s: string, i: number): number => {
     let h = 2166136261 ^ i;

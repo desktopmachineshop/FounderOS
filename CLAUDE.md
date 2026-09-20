@@ -19,13 +19,23 @@ Next.js 14 App Router (server components) + TypeScript + Tailwind +
 better-sqlite3 (`data/founder-os.db`, WAL, auto-seeded on first touch) +
 Zod + Vitest.
 
-## Architecture: larp-first, real-ready
+## Architecture: real by default (2026-09-20)
 
-This is the load-bearing design rule. v1 looks alive because of rich seeded
-data, but every page and API route reads through the repository layer — never
+Upstream's design rule was "larp-first": the app looked alive because of rich
+seeded data. **That is inverted here.** Demo data is gated behind
+`FOUNDER_OS_DEMO` (off by default, `lib/data.ts`), so a real instance starts
+empty and every view shows `NotWired` — what it would show, what source it
+needs, which variable switches it on — rather than a figure nobody earned.
+
+The seed is **not** deleted: it is the fixture a third of the suite is built on,
+and `npm run seed` still seeds on demand. Tests that assert on seeded content
+set `FOUNDER_OS_DEMO=1` explicitly.
+
+Every page and API route still reads through the repository layer — never
 query SQLite directly from a page or route:
 
-- `lib/data.ts` — `getDb()` app singleton; seeds on first touch
+- `lib/data.ts` — `getDb()` app singleton; seeds on first touch **only when
+  `FOUNDER_OS_DEMO` is set** (`demoDataEnabled()`)
 - `lib/db.ts` — `openDb()` + repos (`departments`, `agents`, `metrics`, `tools`, …)
 - `lib/seed.ts` — all seeded content lives here
 - `lib/schemas.ts` — Zod schemas validate every row on the way OUT of the DB
@@ -109,18 +119,12 @@ fixed `Sidebar` (Operate/System groups) + sticky `Topbar` (breadcrumb + ⌘K) +
 `app/api/*` — note `GET /api/brain?q=` runs a hybrid search; bare `GET` returns
 provider status.
 
-## Cohort invite (demo growth surface)
+## No growth surfaces (2026-09-20)
 
-Copy + URL live once in `lib/cohort.ts` (`COHORT_URL`, `COHORT_CTA`,
-`COHORT_STORAGE_KEY`) so the two placements can't drift:
-
-- `CohortBanner` — static footer CTA, rendered in `app/layout.tsx` right after
-  `{children}`, so it is the last thing on **every** view. No client JS.
-- `CohortModal` — first-run welcome pop-up, home screen only, once per browser
-  (`shouldShowCohortModal`; dismissal persists to localStorage). Mounted beside
-  `ConductorPanel` in the layout; it gates itself on `usePathname()`.
-
-Contract lives in `tests/cohort.test.ts`.
+Upstream shipped a cohort funnel — a footer CTA on every view plus a first-run
+pop-up, both pointing at thefounderos.com. Both are **removed**, along with
+`lib/cohort.ts` and their components. This is an operator's own dashboard; it
+does not advertise anything. Do not reintroduce a marketing surface here.
 
 ## Deployment: two hosts, one database (2026-09-19)
 

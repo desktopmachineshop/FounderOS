@@ -187,7 +187,7 @@ export default async function OrgChartPage({ searchParams }: { searchParams?: { 
           <ConductorCard conductor={conductor} agentNames={agentNames} initialBroadcast={lastBroadcast} />
         ) : (
           <div className="rounded-xl border border-dashed border-os-border px-6 py-4 text-xs text-os-dim">
-            conductor missing — run npm run seed
+            No org chart yet — this fills in as departments and agents are added.
           </div>
         )}
         <div className="hidden h-px w-10 bg-os-border-bright md:block" />

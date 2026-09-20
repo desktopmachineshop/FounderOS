@@ -1,3 +1,4 @@
+import { demoDataEnabled } from '@/lib/demo-mode';
 /**
  * Finances domain — pure, real-ready. Income flows through a processor/account
  * registry (Stripe wired today; PayPal, FanBasis ×2, Wise ×2 are honest pending
@@ -103,6 +104,18 @@ export const SAMPLE_EXPENSES: ExpenseItem[] = [
   { id: 'editor', label: 'Video editor (contract)', category: 'Contractors', monthly: 1200 },
   { id: 'va', label: 'Virtual assistant', category: 'Contractors', monthly: 800 },
 ];
+
+/**
+ * The sample expenses, but only for the demo.
+ *
+ * These invented subscriptions used to feed the headline "net /mo" badge on
+ * /finances whenever no statements had been uploaded — so a fresh instance
+ * showed a net-profit figure derived from spend that does not exist. With demo
+ * off this is empty and the page says it needs a statement instead.
+ */
+export function fallbackExpenses(): ExpenseItem[] {
+  return demoDataEnabled() ? SAMPLE_EXPENSES : [];
+}
 
 /** Sum of every recurring monthly cost. */
 export function totalExpenses(items: ExpenseItem[]): number {

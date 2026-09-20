@@ -6,13 +6,18 @@ import { openBankStore } from '@/lib/bank';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Extract text from a PDF via the system `pdftotext` (poppler). Tries PATH then
-// common Homebrew/usr-local locations; -layout keeps the summary columns aligned.
+// Extract text from a PDF via the system `pdftotext` (poppler). Tries PATH
+// first, so a Windows install found by PATH works, then the usual unix install
+// locations; -layout keeps the summary columns aligned.
 function pdfToText(buf: Buffer): Promise<string> {
   const candidates = ['pdftotext', '/opt/homebrew/bin/pdftotext', '/usr/local/bin/pdftotext'];
   return new Promise((resolve, reject) => {
     const tryRun = (i: number) => {
-      if (i >= candidates.length) return reject(new Error('pdftotext not installed (brew install poppler)'));
+      if (i >= candidates.length) return reject(
+          new Error(
+            'pdftotext not found on PATH — install poppler (Windows: winget install poppler; macOS: brew install poppler)',
+          ),
+        );
       const child = execFile(
         candidates[i],
         ['-layout', '-', '-'],

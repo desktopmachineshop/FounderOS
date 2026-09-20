@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 beforeAll(() => {
-  process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'alex-dm-reply-')), 'test.db');
+  process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'dm-reply-')), 'test.db');
+  process.env.FOUNDER_OS_DEMO = '1'; // replies to a seeded DM thread
 });
 afterEach(() => {
   vi.unstubAllGlobals();

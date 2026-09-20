@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Instagram, Linkedin, Mail, Music2, Twitter, Youtube, type LucideIcon } from 'lucide-react';
-import { getDb } from '@/lib/data';
+import { getDb, demoDataEnabled } from '@/lib/data';
 import {
   audienceGrowth,
   audienceSeries,
@@ -34,9 +34,10 @@ const PLATFORM_ICONS: Record<SocialPlatform, LucideIcon> = {
   linkedin: Linkedin,
 };
 
-// Recent published content — seeded dummy until a Zernio published-posts pull
-// lands (the publish queue below is the real, wired path). views/likes carry
-// the like-to-view (engagement) ratio shown per post + averaged in the header.
+// Recent published content — INVENTED sample posts, with invented view and
+// like counts. They exist so the demo has something to show until a Zernio
+// published-posts pull lands (the publish queue below is the real, wired path).
+// Reached only through `samplePosts()`, so a real instance never sees them.
 const RECENT_POSTS = [
   { tag: 'Instagram · Reel', ago: '2h', caption: '3 agents that run my business while I sleep', kind: 'views', views: 12400, likes: 1104 },
   { tag: 'TikTok · Video', ago: '6h', caption: 'POV: your operating system has a command palette', kind: 'views', views: 8100, likes: 640 },
@@ -44,6 +45,10 @@ const RECENT_POSTS = [
   { tag: 'YouTube · Long', ago: '2d', caption: 'Founder OS walkthrough — building in public #4', kind: 'views', views: 940, likes: 88 },
   { tag: 'Instagram · Carousel', ago: '3d', caption: 'The larp-first, real-ready architecture', kind: 'reach', views: 6700, likes: 717 },
 ];
+
+/** The sample posts, demo only — otherwise an empty list and an honest panel. */
+const samplePosts = () => (demoDataEnabled() ? RECENT_POSTS : []);
+
 
 // Human label for a raw Zernio platform string (falls back to capitalising it).
 function platformLabel(platform: string): string {
@@ -236,7 +241,9 @@ export default async function SocialPage() {
           count={
             recentLive
               ? `${livePosts.length} live · zernio`
-              : `${formatRatioPct(averageLikeToView(RECENT_POSTS))} avg L/V · sample`
+              : samplePosts().length > 0
+                ? `${formatRatioPct(averageLikeToView(samplePosts()))} avg L/V · sample`
+                : undefined
           }
         />
         <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
@@ -269,13 +276,13 @@ export default async function SocialPage() {
                   </div>
                 </div>
               ))
-            : RECENT_POSTS.map((p, i) => (
+            : samplePosts().map((p, i) => (
                 <div key={p.caption} className="hoverable flex flex-col rounded-lg-t border border-os-border bg-os-surface px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-os-accent">{p.tag}</span>
                     <span className="shrink-0 font-mono text-[10px] text-os-dim">{p.ago}</span>
                   </div>
-                  <RecencyDots rank={i} of={RECENT_POSTS.length} />
+                  <RecencyDots rank={i} of={samplePosts().length} />
                   <div className="mt-2 line-clamp-3 text-[12px] [text-wrap:pretty]">{p.caption}</div>
                   <div className="mt-auto flex items-center gap-1.5 pt-2 font-mono text-[10px] text-os-dim">
                     <span>

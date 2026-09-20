@@ -1,59 +1,21 @@
 import { beforeAll, describe, expect, test } from 'vitest';
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PAGES, coversEveryPage } from './page-registry';
 
 // Pages read the DB path at first access, so point it at a fresh seeded temp DB
 // before any page module is imported. FUNNEL_PROVIDER keeps /funnel off the
 // live Attio API in tests.
 beforeAll(() => {
   process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'founder-os-smoke-')), 'test.db');
+  // Renders every page against demo data. The mirror of this — that every page
+  // also renders with the store EMPTY — is the acceptance test for the
+  // not-wired work, and lands with it.
+  process.env.FOUNDER_OS_DEMO = '1';
   process.env.FUNNEL_PROVIDER = 'seed';
   process.env.GBRAIN_BIN = path.join(tmpdir(), 'founder-os-no-gbrain-cli');
 });
-
-type PageEntry = {
-  file: string; // path relative to app/, the source of truth for coverage
-  // props is `any` so strongly-typed page components (e.g. /org's searchParams)
-  // remain assignable to this generic invoker.
-  load: () => Promise<{ default: (props?: any) => unknown }>;
-  props?: unknown;
-};
-
-// Every app/**/page.tsx, with the props each needs to be invoked.
-const PAGES: PageEntry[] = [
-  { file: 'page.tsx', load: () => import('@/app/page') },
-  { file: 'comms/page.tsx', load: () => import('@/app/comms/page') },
-  { file: 'social/page.tsx', load: () => import('@/app/social/page') },
-  { file: 'social/[platform]/page.tsx', load: () => import('@/app/social/[platform]/page'), props: { params: { platform: 'instagram' } } },
-  { file: 'social/beehiiv/page.tsx', load: () => import('@/app/social/beehiiv/page') },
-  { file: 'content/page.tsx', load: () => import('@/app/content/page') },
-  { file: 'content/lead-magnets/page.tsx', load: () => import('@/app/content/lead-magnets/page') },
-  { file: 'agents/page.tsx', load: () => import('@/app/agents/page') },
-  { file: 'tasks/page.tsx', load: () => import('@/app/tasks/page') },
-  { file: 'skills/page.tsx', load: () => import('@/app/skills/page') },
-  { file: 'org/page.tsx', load: () => import('@/app/org/page'), props: { searchParams: {} } },
-  { file: 'brain/page.tsx', load: () => import('@/app/brain/page') },
-  { file: 'doctor/page.tsx', load: () => import('@/app/doctor/page') },
-  { file: 'finances/page.tsx', load: () => import('@/app/finances/page') },
-  { file: 'funnel/page.tsx', load: () => import('@/app/funnel/page'), props: { searchParams: {} } },
-  { file: 'workflows/page.tsx', load: () => import('@/app/workflows/page') },
-  { file: 'integrations/page.tsx', load: () => import('@/app/integrations/page') },
-  { file: 'roadmap/page.tsx', load: () => import('@/app/roadmap/page') },
-  { file: 'analytics/page.tsx', load: () => import('@/app/analytics/page') },
-  { file: 'reference/page.tsx', load: () => import('@/app/reference/page') },
-  { file: 'personas/page.tsx', load: () => import('@/app/personas/page') },
-];
-
-function discoverPages(dir: string, base = ''): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const rel = base ? `${base}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) out.push(...discoverPages(path.join(dir, entry.name), rel));
-    else if (entry.name === 'page.tsx') out.push(rel);
-  }
-  return out;
-}
 
 describe('platform smoke — every page renders without throwing', () => {
   // 20s: pages that shell out to the gbrain CLI or distill the brain-store
@@ -68,8 +30,7 @@ describe('platform smoke — every page renders without throwing', () => {
   }, 20_000);
 
   test('the smoke net covers every app/**/page.tsx (no page escapes)', () => {
-    const discovered = discoverPages(path.join(process.cwd(), 'app')).sort();
-    const covered = PAGES.map((p) => p.file).sort();
+    const { covered, discovered } = coversEveryPage();
     expect(covered).toEqual(discovered);
   });
 });

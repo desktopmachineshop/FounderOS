@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { PLATFORM_LABELS, platformDetail, syncFromZernioConfig } from '@/lib/social';
-import type { SocialPlatform } from '@/lib/schemas';
+import { SocialPlatformSchema, type SocialPlatform } from '@/lib/schemas';
+import { NotWired } from '@/components/terminal';
 import { formatFollowers, formatPct, GrowthBadge } from '@/components/SocialStats';
 import { FollowerBarChart } from '@/components/FollowerBarChart';
 
@@ -12,8 +13,39 @@ export const dynamic = 'force-dynamic';
 export default async function SocialPlatformPage({ params }: { params: { platform: string } }) {
   const db = (await getDb());
   await syncFromZernioConfig(db);
-  const detail = await platformDetail(db, params.platform as SocialPlatform);
-  if (!detail) notFound();
+
+  // Two very different "no detail" cases, and only one of them is a 404.
+  // An unknown slug is genuinely not a page. A real platform with no account
+  // row yet is a page with nothing in it — answering 404 there would claim the
+  // platform does not exist, which is a different and false statement.
+  const parsed = SocialPlatformSchema.safeParse(params.platform);
+  if (!parsed.success) notFound();
+  const platform: SocialPlatform = parsed.data;
+
+  const detail = await platformDetail(db, platform);
+  if (!detail) {
+    return (
+      <div>
+        <Link
+          href="/social"
+          className="mb-4 inline-flex items-center gap-1.5 text-xs text-os-muted transition-colors hover:text-os-text"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          All platforms
+        </Link>
+        <header className="mb-8">
+          <h1 className="text-[25px] font-bold uppercase leading-[1.1] tracking-[0.06em]">
+            {PLATFORM_LABELS[platform]}
+          </h1>
+        </header>
+        <NotWired
+          what={`Follower history and growth for ${PLATFORM_LABELS[platform]}`}
+          needs="a social account on this platform, synced from Zernio"
+          env={['ZERNIO_API_KEY']}
+        />
+      </div>
+    );
+  }
 
   const { account, followers, growth, snapshots } = detail;
   const newestFirst = [...snapshots].reverse();

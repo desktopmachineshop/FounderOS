@@ -7,14 +7,15 @@ Founder OS turns the tabs, tools, and mental overhead of running a solo business
 into one screen: unified comms, a client funnel, social growth, finances, a
 knowledge graph, and a roster of named AI agents that each own a real job.
 
-This repository is the **open-source demo build**. It ships seeded with
-realistic placeholder data, so every page is alive out of the box with no
-accounts, no API keys, and nothing to configure. It's the same system taught,
-live, in the [Founder OS cohort](https://www.thefounderos.com); this repo lets
-you explore and run it yourself.
+Upstream, this repository is the open-source **demo build**: it ships seeded
+with placeholder data so every page looks alive out of the box, with no
+accounts and nothing configured.
 
-> Want to build your own, live, with guidance? That's what the cohort is for.
-> [thefounderos.com](https://www.thefounderos.com)
+**This fork is being converted into a working instance.** The goal is the
+opposite of the demo's: never show a number that was not read from a real
+source. Where something is not wired up, the page says so and names what it
+needs. Seeded data still exists for tests and for reference, but it is off
+unless `FOUNDER_OS_DEMO` is set.
 
 ---
 
@@ -254,5 +255,5 @@ MIT. See [`LICENSE`](LICENSE).
 
 ---
 
-Built as the reference implementation for **Founder OS**.
-[thefounderos.com](https://www.thefounderos.com)
+Forked from the **Founder OS** reference implementation
+([thefounderos.com](https://www.thefounderos.com)), MIT licensed.

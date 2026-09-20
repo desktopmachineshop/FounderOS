@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/data';
 import { PageHeader } from '@/components/PageHeader';
+import { NoEntries } from '@/components/terminal';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ export default async function ReferencePage() {
         title="Reference Model"
       />
       <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4 ultra:grid-cols-6">
+        {domains.length === 0 && (
+          <NoEntries what="Operating domains" hint="The reference model is yours to define." />
+        )}
         {domains.map((domain) => (
           <div key={domain.id} className="hoverable rounded-lg-t border border-os-border bg-os-surface px-[17px] py-[15px]">
             <div className="font-mono text-[10px] tracking-[0.14em] text-os-accent">

@@ -98,9 +98,14 @@ describe('demoMemoryGraph — the centre a fork actually sees', () => {
     expect(folders.length).toBeGreaterThanOrEqual(6);
   });
 
-  test('the brain page falls back to it when there is no store on disk', () => {
+  test('the brain page reaches it only through the demo gate', () => {
+    // It used to call demoMemoryGraph() directly, so a fresh instance with no
+    // brain-store saw ~120 invented notes rendered as the operator's own
+    // thinking. fallbackMemoryGraph() returns that only when FOUNDER_OS_DEMO
+    // is set, and an empty graph otherwise.
     const page = read('app/brain/page.tsx');
-    expect(page).toContain('demoMemoryGraph');
+    expect(page).toContain('fallbackMemoryGraph');
+    expect(page).not.toMatch(/\bdemoMemoryGraph\(/);
   });
 });
 

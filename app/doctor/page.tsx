@@ -89,7 +89,13 @@ function FlowStep({ title, detail, dashed = false }: { title: string; detail: st
 
 
 export default async function DoctorPage() {
-  const overview = await createGBrainProvider().overview();
+  const provider = createGBrainProvider();
+  const overview = await provider.overview();
+  // The real page/chunk counts, or null when the CLI cannot answer. These were
+  // hardcoded as fixed page and chunk counts labelled "last known" — two
+  // string literals wearing the costume of a measurement, on the one page whose
+  // whole job is to report the truth about the system.
+  const brainStats = await provider.stats();
   const { store, doctor } = overview;
   const db = (await getDb());
   const maxFiles = Math.max(1, ...store.folders.map((f) => f.files));
@@ -112,7 +118,7 @@ export default async function DoctorPage() {
   const layers: { name: string; sub: string; val: string; state: string }[] = [
     {
       name: 'gbrain CLI',
-      sub: 'v0.41 · gbrain CLI · doctor --fast',
+      sub: 'gbrain CLI · doctor --fast',
       val: doctor.connected ? 'LIVE' : 'UNREACHABLE',
       state: doctor.connected ? 'connected' : 'error',
     },
@@ -130,7 +136,7 @@ export default async function DoctorPage() {
     },
     {
       name: 'Supabase Second Brain',
-      sub: '1240 pages / 15k chunks · free tier idle-pause',
+      sub: 'free tier · pauses when idle',
       val: fallbackActive ? 'PAUSED' : 'LIVE',
       state: fallbackActive ? 'available' : 'connected',
     },
@@ -289,12 +295,20 @@ export default async function DoctorPage() {
           <Stage step="3" title="Supabase Postgres + pgvector" caption='"Second Brain" · ZeroEntropy embeddings'>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">1240</div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">pages · last known</div>
+                <div className="font-mono text-xl font-bold">
+                  {brainStats ? brainStats.pages.toLocaleString('en-US') : '—'}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">
+                  {brainStats ? 'pages' : 'pages · gbrain not reporting'}
+                </div>
               </div>
               <div className="rounded-md-t border border-os-border bg-os-surface2 px-3 py-2.5">
-                <div className="font-mono text-xl font-bold">15k</div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">chunks · last known</div>
+                <div className="font-mono text-xl font-bold">
+                  {brainStats ? brainStats.chunks.toLocaleString('en-US') : '—'}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-os-dim">
+                  {brainStats ? 'chunks' : 'chunks · gbrain not reporting'}
+                </div>
               </div>
             </div>
             <div className="mt-3 space-y-1.5 text-[11px] leading-relaxed text-os-muted">

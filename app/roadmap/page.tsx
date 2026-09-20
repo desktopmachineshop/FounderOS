@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/data';
 import { groupRoadmapByQuarter } from '@/lib/roadmap';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, SectionHead, type BadgeTone } from '@/components/terminal';
+import { Badge, SectionHead, type BadgeTone, NoEntries } from '@/components/terminal';
 import type { RoadmapStatus } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +29,9 @@ export default async function RoadmapPage() {
       {/* High-level functionality phases */}
       <section className="mb-9">
         <SectionHead label="Phases" count={phases.length} />
+        {phases.length === 0 && (
+          <NoEntries what="Delivery phases" hint="The roadmap is yours to write — nothing is missing here, it is just unwritten." />
+        )}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 ultra:grid-cols-6">
           {phases.map((phase) => (
             <div key={phase.id} className="rounded-lg-t border border-os-border bg-os-surface px-[17px] py-[15px]">
@@ -51,6 +54,7 @@ export default async function RoadmapPage() {
 
       {/* Quarterly columns */}
       <SectionHead label="Quarter by quarter" />
+      {quarters.length === 0 && <NoEntries what="Quarterly plan" />}
       <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-4 ultra:grid-cols-6">
         {quarters.map(({ quarter, items }) => {
           const doneN = items.filter((r) => r.status === 'done').length;

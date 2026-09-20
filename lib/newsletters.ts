@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { beehiivPosts, type Newsletter } from '@/lib/connectors/beehiiv';
+import { demoDataEnabled } from '@/lib/demo-mode';
 
 export type { Newsletter };
 
@@ -54,13 +55,20 @@ export const SEED_NEWSLETTERS: Newsletter[] = [
   },
 ];
 
-/** Live newsletters when the connector has data, else the seeded fallback. */
+/**
+ * Live newsletters when the connector has data.
+ *
+ * The seeded set is a **demo** fallback, not a default: its open and click
+ * rates are invented, and returning them to a real operator who simply has no
+ * Beehiiv key would be presenting fiction as performance. With demo off the
+ * answer is an empty list, and the page says what it needs.
+ */
 export async function getNewsletters(
   env: Record<string, string | undefined> = process.env,
 ): Promise<Newsletter[]> {
   const live = await beehiivPosts(env);
   if (live && live.length > 0) return live;
-  return SEED_NEWSLETTERS;
+  return demoDataEnabled() ? SEED_NEWSLETTERS : [];
 }
 
 export type NewsletterSummary = {

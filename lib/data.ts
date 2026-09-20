@@ -3,11 +3,15 @@ import fs from 'node:fs';
 import { openDb, type FounderDb } from '@/lib/db';
 import { isPostgresUrl } from '@/lib/sql';
 import { seedDatabase } from '@/lib/seed';
+import { demoDataEnabled } from '@/lib/demo-mode';
+
+// Re-exported so existing callers keep importing it from here.
+export { demoDataEnabled };
 
 /**
- * App-level singleton. Larp-first, real-ready: every page and API route reads
- * through this repository layer, so swapping the backend underneath is a
- * repo-level change, not a UI rewrite.
+ * App-level singleton. Every page and API route reads through this repository
+ * layer, so swapping the backend underneath is a repo-level change, not a UI
+ * rewrite.
  *
  * Which backend depends on where this instance runs:
  *
@@ -49,21 +53,27 @@ async function open(): Promise<FounderDb> {
   }
   const db = await openDb(target);
 
-  // Seed on first touch so a fresh clone boots looking alive. Each clause
-  // back-fills databases created before that table existed; seedDatabase is
-  // idempotent (INSERT OR REPLACE), so re-running only adds what's missing.
-  const counts = await Promise.all([
-    await db.departments.all(),
-    await db.workflows.all(),
-    await db.skills.all(),
-    await db.social.accounts(),
-    await db.emailList.snapshots(),
-    await db.social.dmSnapshots(),
-    await db.social.dmMessages(),
-    await db.leadMagnets.all(),
-  ]);
-  if (counts.some((rows) => rows.length === 0)) {
-    await seedDatabase(db);
+  // Demo data only when asked for. Unset, the store stays empty and the views
+  // say so — `NotWired` where a source would fill them, `NoEntries` where the
+  // operator writes them himself — instead of showing a figure nobody earned.
+  // `npm run seed` still seeds on demand; it calls seedDatabase directly.
+  if (demoDataEnabled()) {
+    // Each clause back-fills databases created before that table existed;
+    // seedDatabase is idempotent (INSERT OR REPLACE), so re-running only adds
+    // what is missing.
+    const counts = await Promise.all([
+      db.departments.all(),
+      db.workflows.all(),
+      db.skills.all(),
+      db.social.accounts(),
+      db.emailList.snapshots(),
+      db.social.dmSnapshots(),
+      db.social.dmMessages(),
+      db.leadMagnets.all(),
+    ]);
+    if (counts.some((rows) => rows.length === 0)) {
+      await seedDatabase(db);
+    }
   }
   return db;
 }
