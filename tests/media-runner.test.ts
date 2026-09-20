@@ -5,7 +5,7 @@ import { newMediaJob } from '@/lib/media-jobs';
 
 const config: RunnerConfig = {
   mediaRoot: '/media/founderos',
-  remotionProject: '/home/alex/Projects/remotion-pipeline',
+  remotionProject: '/home/dave/Projects/remotion-pipeline',
   whisperBin: '/opt/homebrew/bin/whisper-cli',
   ffmpegBin: '/opt/homebrew/bin/ffmpeg',
 };

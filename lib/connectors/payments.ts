@@ -5,7 +5,7 @@ import { monthStartUnix, sumChargeIncome, type OutgoingTransfer } from '@/lib/fi
 export type ProcessorInfo = { id: string; name: string; configured: boolean };
 
 /**
- * Payment processor registry — the real set Alex runs money through. Ids
+ * Payment processor registry — the real set Dave runs money through. Ids
  * match `incomeAccounts` so the finances page can light each card by config.
  * Stripe has a full implementation; the others register here (honest pending)
  * so the connections board shows what is wired vs pending — add a client +

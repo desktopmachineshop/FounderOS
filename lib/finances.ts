@@ -19,7 +19,7 @@ export type IncomeAccount = {
   income: number | null; // month-to-date income in USD (null = pending)
 };
 
-/** Recent outgoing transfer (e.g. Wise) — money Alex sent out. */
+/** Recent outgoing transfer (e.g. Wise) — money Dave sent out. */
 export type OutgoingTransfer = {
   amountCents: number;
   currency: string;
@@ -29,7 +29,7 @@ export type OutgoingTransfer = {
 };
 
 /**
- * Every processor Alex runs money through. Stripe carries its real
+ * Every processor Dave runs money through. Stripe carries its real
  * month-to-date income when connected; the rest are multi-account-ready slots
  * (two FanBasis for Vantage / Launchpad Cohort, two Wise). `configured` flags
  * which accounts have keys in the env (from `configuredProcessors`); `live`

@@ -177,11 +177,11 @@ describe('API route handlers', () => {
 
   test('GET /api/funnel?venture= filters journeys to one venture', async () => {
     const { GET } = await import('@/app/api/funnel/route');
-    const res = await GET(new Request('http://localhost/api/funnel?venture=vantage'));
+    const res = await GET(new Request('http://localhost/api/funnel?venture=dms-industrial'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.journeys.length).toBeGreaterThan(0);
-    expect(body.journeys.every((j: { venture: string }) => j.venture === 'vantage')).toBe(true);
+    expect(body.journeys.every((j: { venture: string }) => j.venture === 'dms-industrial')).toBe(true);
   });
 
   test('GET /api/funnel rejects an unknown venture', async () => {

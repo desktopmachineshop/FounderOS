@@ -43,10 +43,10 @@ describe('mapGhlOpportunities', () => {
     expect(byId['ghl-o4']).toBe('opted_in');
   });
 
-  test('produces valid journeys: LC venture, ghl source, stall-ready last-touch date', () => {
+  test('produces valid journeys: industrial venture, ghl source, stall-ready last-touch date', () => {
     const { journeys } = mapGhlOpportunities([PIPELINE], [opp({ id: 'o1', pipelineStageId: 's-dm' })], NOW);
     const j = FunnelJourneySchema.parse(journeys[0]);
-    expect(j.venture).toBe('launchpad-cohort');
+    expect(j.venture).toBe('dms-industrial');
     expect(j.touches.every((t) => t.source === 'ghl')).toBe(true);
     expect(j.touches[0].at).toBe('2026-06-01'); // created
     expect(j.touches.at(-1)?.at).toBe('2026-06-28'); // last stage change → decay clock

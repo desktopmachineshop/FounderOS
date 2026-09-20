@@ -67,8 +67,8 @@ describe('parseStatementCsv', () => {
   it('inverts sign for Amex/credit-card exports (charge positive → expense out)', () => {
     const csv = [
       'Date,Description,Card Member,Amount,Appears On Your Statement As',
-      '06/15/2026,OPENAI,ALEX RIVERA,52.99,OPENAI',
-      '06/10/2026,AUTOPAY PAYMENT - THANK YOU,ALEX RIVERA,-2000.00,AUTOPAY',
+      '06/15/2026,OPENAI,DAVE,52.99,OPENAI',
+      '06/10/2026,AUTOPAY PAYMENT - THANK YOU,DAVE,-2000.00,AUTOPAY',
     ].join('\n');
     const rows = parseStatementCsv(csv);
     const charge = rows.find((r) => r.description.startsWith('OPENAI'))!;

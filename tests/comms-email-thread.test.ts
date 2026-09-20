@@ -21,8 +21,8 @@ describe('email thread helpers', () => {
   });
 
   test('converts HTML email to readable text without scripts, styles, or tags', () => {
-    const html = '<style>.x{color:red}</style><p>Hello&nbsp;<strong>Alex</strong></p><script>alert(1)</script><div>Line &amp; two</div>';
-    expect(htmlEmailToText(html)).toBe('Hello Alex\n\nLine & two');
+    const html = '<style>.x{color:red}</style><p>Hello&nbsp;<strong>Dave</strong></p><script>alert(1)</script><div>Line &amp; two</div>';
+    expect(htmlEmailToText(html)).toBe('Hello Dave\n\nLine & two');
   });
 
   test('prefers a text/plain body and exposes attachments separately', () => {

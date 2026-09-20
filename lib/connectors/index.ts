@@ -44,7 +44,7 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
     'manychat',
     'social',
     () => {
-      // Alex's real key rides in ~/.config/mcp.json (the manychat MCP
+      // Dave's real key rides in ~/.config/mcp.json (the manychat MCP
       // registration), same reuse pattern as Attio — .env.local still wins.
       const env = runtimeEnv();
       if (!env.MANYCHAT_API_KEY) env.MANYCHAT_API_KEY = resolveManychatKey();

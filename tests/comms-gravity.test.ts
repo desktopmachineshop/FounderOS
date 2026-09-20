@@ -25,7 +25,7 @@ describe('commsLane — source + inbox, unknown -> misc', () => {
   });
 
   it('routes a known (tagged) sender in a work inbox to work', () => {
-    expect(commsLane(item({ source: 'email', title: 'Vantage — Client', priority: 1 }))).toBe('work');
+    expect(commsLane(item({ source: 'email', title: 'DMS Industrial — Client', priority: 1 }))).toBe('work');
   });
 
   it('routes an unknown (untagged) sender in a work inbox to misc', () => {
@@ -35,11 +35,11 @@ describe('commsLane — source + inbox, unknown -> misc', () => {
 
 describe('commsLane — work keywords rescue untagged work mail from misc', () => {
   it('routes an untagged work-inbox email to work when it matches a keyword', () => {
-    expect(commsLane(item({ title: 'Northwind — nobody', preview: 'Vantage invoice' }), ['vantage'])).toBe('work');
+    expect(commsLane(item({ title: 'Northwind — nobody', preview: 'DMS Industrial invoice' }), ['dms industrial'])).toBe('work');
   });
 
   it('is case-insensitive on keyword matches', () => {
-    expect(commsLane(item({ title: 'Inbox — x', preview: 'LAUNCHPAD COHORT renewal' }), ['launchpad cohort'])).toBe('work');
+    expect(commsLane(item({ title: 'Inbox — x', preview: 'OPENV renewal' }), ['openv'])).toBe('work');
   });
 
   it('matches a keyword in the sender (Frederick Potticary -> work)', () => {
@@ -47,11 +47,11 @@ describe('commsLane — work keywords rescue untagged work mail from misc', () =
   });
 
   it('lets a work keyword beat a personal-named inbox', () => {
-    expect(commsLane(item({ title: 'Personal — x', preview: 'Vantage deal' }), ['vantage'])).toBe('work');
+    expect(commsLane(item({ title: 'Personal — x', preview: 'DMS Industrial deal' }), ['dms industrial'])).toBe('work');
   });
 
   it('still sends unmatched untagged work mail to misc', () => {
-    expect(commsLane(item({ title: 'Northwind — nobody', preview: 'hello there' }), ['vantage'])).toBe('misc');
+    expect(commsLane(item({ title: 'Northwind — nobody', preview: 'hello there' }), ['dms industrial'])).toBe('misc');
   });
 
   it('leaves original behavior intact when no keywords are given', () => {
@@ -61,9 +61,9 @@ describe('commsLane — work keywords rescue untagged work mail from misc', () =
 
 describe('parseWorkKeywords', () => {
   it('splits on commas, trims, and drops empties', () => {
-    expect(parseWorkKeywords('Vantage, Launchpad Cohort ,, Potticary')).toEqual([
-      'Vantage',
-      'Launchpad Cohort',
+    expect(parseWorkKeywords('DMS Industrial, OpenV ,, Potticary')).toEqual([
+      'DMS Industrial',
+      'OpenV',
       'Potticary',
     ]);
   });

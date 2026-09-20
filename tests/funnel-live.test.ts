@@ -104,17 +104,17 @@ describe('mapAttioDeals', () => {
 });
 
 describe('classifyVenture', () => {
-  test('person-name deals read as Launchpad Cohort mentorship leads', () => {
-    expect(classifyVenture('Reese Calder')).toBe('launchpad-cohort');
-    expect(classifyVenture('Tayla Nguyen')).toBe('launchpad-cohort');
-    expect(classifyVenture('CASEY EXAMPLE')).toBe('launchpad-cohort');
+  test('person-name deals read as retail buyers', () => {
+    expect(classifyVenture('Reese Calder')).toBe('desktop-machine-shop');
+    expect(classifyVenture('Tayla Nguyen')).toBe('desktop-machine-shop');
+    expect(classifyVenture('CASEY EXAMPLE')).toBe('desktop-machine-shop');
   });
 
-  test('company-flavored deals read as Vantage client builds', () => {
-    expect(classifyVenture('Orbit Labs')).toBe('vantage');
-    expect(classifyVenture('Harbor Dental')).toBe('vantage');
-    expect(classifyVenture('Lin & Co Accounting')).toBe('vantage');
-    expect(classifyVenture('Fields Roofing LLC')).toBe('vantage');
+  test('company-flavored deals read as industrial accounts', () => {
+    expect(classifyVenture('Orbit Labs')).toBe('dms-industrial');
+    expect(classifyVenture('Harbor Dental')).toBe('dms-industrial');
+    expect(classifyVenture('Lin & Co Accounting')).toBe('dms-industrial');
+    expect(classifyVenture('Fields Roofing LLC')).toBe('dms-industrial');
   });
 
   test('mapAttioDeals stamps the heuristic venture on every journey', () => {
@@ -122,8 +122,8 @@ describe('classifyVenture', () => {
       rawDeal({ id: 'rec-p', name: 'Reese Calder', stage: 'Contacted' }),
       rawDeal({ id: 'rec-c', name: 'Orbit Labs', stage: 'Contacted' }),
     ], NOW);
-    expect(journeys.find((j) => j.id === 'attio-rec-p')?.venture).toBe('launchpad-cohort');
-    expect(journeys.find((j) => j.id === 'attio-rec-c')?.venture).toBe('vantage');
+    expect(journeys.find((j) => j.id === 'attio-rec-p')?.venture).toBe('desktop-machine-shop');
+    expect(journeys.find((j) => j.id === 'attio-rec-c')?.venture).toBe('dms-industrial');
   });
 });
 

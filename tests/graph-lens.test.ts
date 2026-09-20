@@ -17,7 +17,7 @@ async function contextFromSeed(): Promise<LensContext> {
 
 const ctx = contextFromSeed();
 
-describe('graph lenses — Alex taxonomy (2026-07-12)', () => {
+describe('graph lenses — Dave taxonomy (2026-07-12)', () => {
   test('the requested categories all exist', () => {
     expect(ENTITY_LENSES.map((l) => l.label)).toEqual([
       'All people', 'Sub-agents', 'Tools', 'Workflows', 'SOPs', 'Projects', 'Teams', 'Departments',

@@ -30,7 +30,7 @@ afterEach(async () => {
 const contact = (over: Partial<FunnelContact> = {}): FunnelContact => ({
   id: 'fc-test',
   name: 'Test Client',
-  venture: 'vantage',
+  venture: 'dms-industrial',
   status: 'engaged',
   product: null,
   amountUsd: null,
@@ -96,10 +96,10 @@ describe('funnel repo', () => {
 
   test('venture filter narrows journeys', async () => {
     db = await openDb(':memory:');
-    await db.funnel.insertContact(contact({ id: 'fc-m', venture: 'vantage' }));
-    await db.funnel.insertContact(contact({ id: 'fc-aa', venture: 'launchpad-cohort' }));
-    expect((await db.funnel.journeys('vantage')).map((j) => j.id)).toEqual(['fc-m']);
-    expect((await db.funnel.journeys('launchpad-cohort')).map((j) => j.id)).toEqual(['fc-aa']);
+    await db.funnel.insertContact(contact({ id: 'fc-m', venture: 'dms-industrial' }));
+    await db.funnel.insertContact(contact({ id: 'fc-aa', venture: 'openv' }));
+    expect((await db.funnel.journeys('dms-industrial')).map((j) => j.id)).toEqual(['fc-m']);
+    expect((await db.funnel.journeys('openv')).map((j) => j.id)).toEqual(['fc-aa']);
     expect(await db.funnel.journeys()).toHaveLength(2);
   });
 });
@@ -120,8 +120,11 @@ describe('funnel seed', () => {
       expect(j.touches[0].stage).toBe('first_touch');
     }
 
-    // both ventures represented
-    expect(new Set(all.map((j) => j.venture))).toEqual(new Set(['vantage', 'launchpad-cohort']));
+    // the three businesses that carry a pipeline are represented (the blog
+    // has no funnel of its own)
+    expect(new Set(all.map((j) => j.venture))).toEqual(
+      new Set(['desktop-machine-shop', 'dms-industrial', 'openv']),
+    );
 
     // both acquisition lanes represented, with honest intended sources
     const firsts = all.map((j) => j.touches[0]);
@@ -181,7 +184,7 @@ describe('funnelSummary', () => {
   ): FunnelJourney => ({
     id,
     name: id,
-    venture: 'vantage',
+    venture: 'dms-industrial',
     status,
     product: amountUsd ? 'Offer' : null,
     amountUsd,
@@ -253,7 +256,7 @@ describe('journeyMeta', () => {
   ): FunnelJourney => ({
     id: 'jm',
     name: 'jm',
-    venture: 'vantage',
+    venture: 'dms-industrial',
     status,
     product: null,
     amountUsd: null,
@@ -361,7 +364,7 @@ describe('funnelSpaceModel', () => {
   ): FunnelJourney => ({
     id,
     name: id,
-    venture: 'launchpad-cohort',
+    venture: 'openv',
     status,
     product: null,
     amountUsd: null,
@@ -456,7 +459,7 @@ describe('attentionQueue — what to act on today (AC55)', () => {
   ): FunnelJourney => ({
     id,
     name: id,
-    venture: 'vantage',
+    venture: 'dms-industrial',
     status: 'engaged',
     product: null,
     amountUsd: null,

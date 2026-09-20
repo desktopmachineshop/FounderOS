@@ -276,7 +276,7 @@ export const SocialAccountSchema = z.object({
 });
 
 // One row per platform per day. History accrues from the Zernio config on
-// every dashboard read; Alex's own scrapes can insert richer rows later.
+// every dashboard read; Dave's own scrapes can insert richer rows later.
 export const SocialSnapshotSchema = z.object({
   platform: SocialPlatformSchema,
   capturedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'capturedAt must look like 2026-06-13'),
@@ -435,7 +435,7 @@ export const WorkflowStepSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   ownerKind: WorkflowOwnerKindSchema,
-  owner: z.string().min(1), // "Alex · Founder" / "SDR Agent"
+  owner: z.string().min(1), // "Dave · Founder" / "SDR Agent"
   hoursPerWeek: z.number().nonnegative(),
   tools: z.array(z.string()), // tool slugs (same namespace as agents)
   edgeLabel: z.string().nullable(), // label on the edge INTO the next step
@@ -487,14 +487,19 @@ export const RosterClientSchema = z.object({
 // ── Funnel — client journeys from first touch to conversion ─────────────────
 // Canonical stages; `nurtured` is optional so a journey renders as 4–5 touches.
 export const FunnelStageSchema = z.enum(['first_touch', 'engaged', 'nurtured', 'opted_in', 'converted']);
-export const FunnelVentureSchema = z.enum(['vantage', 'launchpad-cohort']);
+export const FunnelVentureSchema = z.enum([
+  'desktop-machine-shop',
+  'dms-industrial',
+  '3dpandme',
+  'openv',
+]);
 export const FunnelChannelSchema = z.enum(['organic', 'ads', 'dm', 'email', 'webinar', 'call', 'checkout', 'crm']);
 // Where each touch comes from: Trakyo (organic attribution), Meta Ads MCP
 // (paid), Attio (live CRM pipeline), manual otherwise. Seeded rows carry the
 // intended source so the live swap is a repo-level change.
 export const FunnelSourceSchema = z.enum(['trakyo', 'meta-ads', 'attio', 'ghl', 'manual']);
 
-// Relationship temperature with Alex — with likelihood-to-buy (0–100) it
+// Relationship temperature with Dave — with likelihood-to-buy (0–100) it
 // drives how a client node renders in the funnel space. Seeded dummy; later
 // computed from CRM (Attio) + Trakyo engagement.
 export const FunnelRelationshipSchema = z.enum(['cold', 'warm', 'hot']);

@@ -179,7 +179,7 @@ export default async function SocialPage() {
           <div className="mt-3 font-mono text-[26px] font-semibold leading-none tracking-[-0.02em]">
             {formatFollowers(email.subscribers)}
           </div>
-          <div className="mt-1.5 truncate font-mono text-[9.5px] text-os-dim">Beehiiv · Alex&apos;s Newsletter</div>
+          <div className="mt-1.5 truncate font-mono text-[9.5px] text-os-dim">Beehiiv · Dave&apos;s Newsletter</div>
           <div className="mt-3 h-1 overflow-hidden rounded-sm-t bg-os-surface2">
             <div
               className="h-full bg-os-accent opacity-60"

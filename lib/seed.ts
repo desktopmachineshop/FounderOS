@@ -35,7 +35,7 @@ const GRAY = {
   dark: '#525252',
 };
 
-// Alex's five operating pillars (2026-06-12 directive).
+// Dave's five operating pillars (2026-06-12 directive).
 const departments: Department[] = [
   { id: 'dept-sales', name: 'Sales', slug: 'sales', tagline: 'Pipeline and deals.', color: GRAY.white, order: 1 },
   { id: 'dept-marketing-growth', name: 'Marketing/Growth', slug: 'marketing-growth', tagline: 'Publishing, content, attention.', color: GRAY.light, order: 2 },
@@ -454,7 +454,7 @@ const agents: Agent[] = [
 ];
 
 // ── Humans in the process ─────────────────────────────────────────────────────
-// Real heads (Marco, Nadia) plus larp-first seeds for the roles Alex will hire
+// Real heads (Marco, Nadia) plus larp-first seeds for the roles Dave will hire
 // into (rename when the real person lands). Tools use the agents' slug
 // namespace so the graph chain still ends in tools for humans too.
 const people: Person[] = [
@@ -608,7 +608,7 @@ const sopTasks: SopTask[] = [
       'Connect the four configured IMAP inboxes on the sync cadence',
       'Pull unread counts and every thread newer than the last sweep',
       'Classify each thread: urgent, reply-needed, waiting-on-us, FYI',
-      'Draft suggested replies for reply-needed threads in Alex voice',
+      'Draft suggested replies for reply-needed threads in Dave voice',
       'Hand urgent threads to the escalation queue with a one-line summary',
       'Surface anything from a client domain to the Clients pillar too',
     ],
@@ -643,8 +643,8 @@ const sopTasks: SopTask[] = [
     summary: 'The human hands on the threads that need judgment.',
     steps: [
       'Review the escalation queue the workers built overnight',
-      'Draft replies in Alex’s voice for VIP threads',
-      'Send what is cleared, file the rest for Alex’s approval',
+      'Draft replies in Dave’s voice for VIP threads',
+      'Send what is cleared, file the rest for Dave’s approval',
       'Chase any thread waiting on us for more than 24 hours',
       'Close the loop in /comms so nothing dangles',
     ],
@@ -894,7 +894,7 @@ const sopTasks: SopTask[] = [
       'Categorize transactions using the statement’s own categories',
       'Reconcile against the income the agents recorded and chase every gap',
       'Confirm refunds and disputes are reflected in the venture totals',
-      'Deliver the month-end P&L to Alex with three lines of commentary',
+      'Deliver the month-end P&L to Dave with three lines of commentary',
     ],
   },
 
@@ -1013,7 +1013,7 @@ const roadmap: RoadmapItem[] = [
   { id: 'rm-scheduler', title: 'Agent scheduler (cron runs)', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Recurring agent runs with run history and failure alerts.' },
   { id: 'rm-llm', title: 'LLM summarization layer', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Claude API digests over inbox/Slack/payments data.' },
   { id: 'rm-host', title: 'Migrate to a dedicated host', quarter: '2026-Q3', status: 'next', departmentId: 'dept-tech', description: 'Host app + gbrain + agents on the host; Supabase stays managed.' },
-  { id: 'rm-ui', title: 'UI design pass', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Alex-led redesign once all integrations are live.' },
+  { id: 'rm-ui', title: 'UI design pass', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Dave-led redesign once all integrations are live.' },
   { id: 'rm-auth', title: 'Auth + remote access', quarter: '2026-Q4', status: 'later', departmentId: 'dept-tech', description: 'Reach FOUNDER OS on the host from anywhere, safely.' },
 ];
 
@@ -1043,13 +1043,15 @@ const phases: Phase[] = [
   { id: 'phase-4', number: 4, title: 'Dedicated Host', items: ['Migrate compute', 'Remote access + auth', '24/7 uptime'] },
 ];
 
-// The @founderos.ai footprint, handles straight from the Postly config.
+// Placeholder social footprint — still the example @founderos.ai handles.
+// Replace with Dave's real accounts per venture when the Postly/Zernio account
+// map is pointed at them; the LinkedIn row is the operator's own profile.
 const socialAccounts: SocialAccount[] = [
   { platform: 'instagram', handle: '@founderos.ai', url: 'https://instagram.com/founderos.ai', order: 1 },
   { platform: 'tiktok', handle: '@founderos.ai', url: 'https://tiktok.com/@founderos.ai', order: 2 },
   { platform: 'twitter', handle: '@Founderosai', url: 'https://x.com/Founderosai', order: 3 },
   { platform: 'youtube', handle: '@founderosai', url: 'https://youtube.com/@founderosai', order: 4 },
-  { platform: 'linkedin', handle: 'Alex Rivera', url: null, order: 5 },
+  { platform: 'linkedin', handle: 'Dave', url: null, order: 5 },
 ];
 
 // Demo follower counts. LinkedIn has no baseline in this demo, so it gets
@@ -1144,7 +1146,7 @@ const socialDms: SocialDm[] = DM_TARGETS.map((t) => ({
 // (source 'seed-dummy'; real messages arrive as source 'dmflow'). Four
 // threads, inbound + outbound, believable Vantage / FounderOS lead-gen tone.
 const socialDmMessages: SocialDmMessage[] = [
-  // Alex — agency owner off a reel
+  // Alex Rivera (a prospect, not the operator) — agency owner off a reel
   ['ig-alex', 'Alex Rivera', 'alex.rivera', 'in', 'saw your reel on the 3-agent setup 🔥 do you actually work with agencies?', null, '2026-07-18T14:02:00.000Z'],
   ['ig-alex', 'Alex Rivera', 'alex.rivera', 'out', 'appreciate it! yeah — agencies are exactly who Vantage is built for. what are you running right now?', null, '2026-07-18T14:09:00.000Z'],
   ['ig-alex', 'Alex Rivera', 'alex.rivera', 'in', 'SMMA, ~12 clients, drowning in fulfillment tbh 😅', null, '2026-07-18T14:15:00.000Z'],
@@ -1223,7 +1225,7 @@ type SeededJourney = {
 const FUNNEL_JOURNEYS: SeededJourney[] = [
   // — Launchpad Cohort (mentorship) —
   {
-    id: 'fc-jake-moreau', name: 'Jake Moreau', venture: 'launchpad-cohort',
+    id: 'fc-jake-moreau', name: 'Jake Moreau', venture: 'openv',
     relationship: 'hot', likelihood: 100,
     product: 'Launchpad Cohort — mentorship (PIF)', amountUsd: 6800,
     touches: [
@@ -1235,7 +1237,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-priya-shah', name: 'Priya Shah', venture: 'launchpad-cohort',
+    id: 'fc-priya-shah', name: 'Priya Shah', venture: 'openv',
     relationship: 'warm', likelihood: 95,
     product: 'Launchpad Cohort — mentorship (3-pay)', amountUsd: 2600,
     touches: [
@@ -1246,7 +1248,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-danny-okafor', name: 'Danny Okafor', venture: 'launchpad-cohort',
+    id: 'fc-danny-okafor', name: 'Danny Okafor', venture: 'openv',
     relationship: 'hot', likelihood: 100,
     product: 'Launchpad Cohort — mentorship (PIF)', amountUsd: 6800,
     touches: [
@@ -1258,7 +1260,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-sofia-reyes', name: 'Sofia Reyes', venture: 'launchpad-cohort',
+    id: 'fc-sofia-reyes', name: 'Sofia Reyes', venture: 'openv',
     relationship: 'warm', likelihood: 95,
     product: 'Launchpad Cohort — mentorship (3-pay)', amountUsd: 2600,
     touches: [
@@ -1271,7 +1273,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
   },
   {
     // Ads ghost — three engaged touches, quiet for 3 weeks: the red node.
-    id: 'fc-liam-carter', name: 'Liam Carter', venture: 'launchpad-cohort',
+    id: 'fc-liam-carter', name: 'Liam Carter', venture: 'openv',
     relationship: 'cold', likelihood: 15,
     touches: [
       ['first_touch', 'ads', 'Meta ad: "stop selling hours" (cold traffic)', 'meta-ads', 27],
@@ -1282,7 +1284,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
   },
   {
     // Warm but drifting — 10 quiet days in nurture: also red until re-touched.
-    id: 'fc-marcus-webb', name: 'Marcus Webb', venture: 'launchpad-cohort',
+    id: 'fc-marcus-webb', name: 'Marcus Webb', venture: 'openv',
     relationship: 'warm', likelihood: 42,
     touches: [
       ['first_touch', 'organic', 'IG carousel: "agency niches that print in 2026"', 'trakyo', 24],
@@ -1292,7 +1294,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-tayla-nguyen', name: 'Tayla Nguyen', venture: 'launchpad-cohort',
+    id: 'fc-tayla-nguyen', name: 'Tayla Nguyen', venture: 'desktop-machine-shop',
     relationship: 'hot', likelihood: 84,
     email: 'tayla.nguyen@example.com', phone: '+15550100841',
     touches: [
@@ -1304,7 +1306,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
   },
   {
     // Mid-decay: 70 quiet days — visibly fading toward red, 20 days from the archive.
-    id: 'fc-remy-cole', name: 'Remy Cole', venture: 'launchpad-cohort',
+    id: 'fc-remy-cole', name: 'Remy Cole', venture: 'desktop-machine-shop',
     relationship: 'cold', likelihood: 25,
     touches: [
       ['first_touch', 'organic', 'IG reel: "fire your lead-gen agency"', 'trakyo', 84],
@@ -1315,7 +1317,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
   },
   {
     // Went quiet in March — decayed past 90 days into the archive tab.
-    id: 'fc-jordan-blake', name: 'Jordan Blake', venture: 'launchpad-cohort',
+    id: 'fc-jordan-blake', name: 'Jordan Blake', venture: 'desktop-machine-shop',
     relationship: 'cold', likelihood: 20,
     touches: [
       ['first_touch', 'ads', 'Meta ad: "quit your 9-5 with one client" (old campaign)', 'meta-ads', 118],
@@ -1326,7 +1328,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
   },
   // — Vantage (AI agency clients) —
   {
-    id: 'fc-ava-stone', name: 'Ava Stone — Northwind Legal', venture: 'vantage',
+    id: 'fc-ava-stone', name: 'Ava Stone — Northwind Legal', venture: 'dms-industrial',
     relationship: 'hot', likelihood: 100,
     product: 'Vantage — AI intake build (sprint)', amountUsd: 12000,
     touches: [
@@ -1338,7 +1340,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-omar-haddad', name: 'Omar Haddad — Pulse Fitness Group', venture: 'vantage',
+    id: 'fc-omar-haddad', name: 'Omar Haddad — Pulse Fitness Group', venture: 'dms-industrial',
     relationship: 'warm', likelihood: 95,
     product: 'Vantage — AI ops retainer (monthly)', amountUsd: 4500,
     touches: [
@@ -1350,7 +1352,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-elena-brooks', name: 'Elena Brooks — Harbor Dental', venture: 'vantage',
+    id: 'fc-elena-brooks', name: 'Elena Brooks — Harbor Dental', venture: 'dms-industrial',
     relationship: 'hot', likelihood: 100,
     product: 'Vantage — AI intake build (sprint)', amountUsd: 9500,
     touches: [
@@ -1361,7 +1363,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-noah-fields', name: 'Noah Fields — Fields Roofing', venture: 'vantage',
+    id: 'fc-noah-fields', name: 'Noah Fields — Fields Roofing', venture: 'dms-industrial',
     relationship: 'warm', likelihood: 66,
     touches: [
       ['first_touch', 'ads', 'Meta ad: "book 20 estimates/mo on autopilot"', 'meta-ads', 8],
@@ -1371,7 +1373,7 @@ const FUNNEL_JOURNEYS: SeededJourney[] = [
     ],
   },
   {
-    id: 'fc-grace-lin', name: 'Grace Lin — Lin & Co Accounting', venture: 'vantage',
+    id: 'fc-grace-lin', name: 'Grace Lin — Lin & Co Accounting', venture: 'dms-industrial',
     relationship: 'warm', likelihood: 74,
     email: 'grace@linandco.example.com', phone: '+15550100742',
     person: 'Grace Lin', company: 'Lin & Co Accounting', role: 'Managing Partner',
@@ -1454,7 +1456,7 @@ const workflows: Workflow[] = [
         id: 'wf-mer-3',
         title: 'Book demos',
         ownerKind: 'human',
-        owner: 'Alex · Founder',
+        owner: 'Dave · Founder',
         hoursPerWeek: 4,
         tools: ['calendar', 'ledger'],
         edgeLabel: 'demo',
@@ -1465,7 +1467,7 @@ const workflows: Workflow[] = [
         id: 'wf-mer-4',
         title: 'Sales call',
         ownerKind: 'human',
-        owner: 'Alex · Founder',
+        owner: 'Dave · Founder',
         hoursPerWeek: 10,
         tools: ['webinarjam', 'ledger'],
         edgeLabel: 'proposal',
@@ -1476,7 +1478,7 @@ const workflows: Workflow[] = [
         id: 'wf-mer-5',
         title: 'Proposal & follow-up',
         ownerKind: 'human',
-        owner: 'Alex · Founder',
+        owner: 'Dave · Founder',
         hoursPerWeek: 5,
         tools: ['proposal-gen', 'gmail'],
         edgeLabel: 'won',
@@ -1529,7 +1531,7 @@ const workflows: Workflow[] = [
         id: 'wf-lc-3',
         title: 'Strategy call',
         ownerKind: 'human',
-        owner: 'Alex · Founder',
+        owner: 'Dave · Founder',
         hoursPerWeek: 8,
         tools: ['ghl', 'calendar'],
         edgeLabel: 'closed',

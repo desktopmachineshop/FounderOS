@@ -11,7 +11,7 @@ import {
 } from '@/lib/finances';
 
 describe('incomeAccounts', () => {
-  test('lists every processor Alex runs (Stripe, PayPal, FanBasis×2, Wise×2)', () => {
+  test('lists every processor Dave runs (Stripe, PayPal, FanBasis×2, Wise×2)', () => {
     const accounts = incomeAccounts({ connected: false, mtdUsd: null });
     expect(accounts).toHaveLength(6);
     expect(accounts.map((a) => a.id)).toEqual([

@@ -97,7 +97,7 @@ export async function syncSocialSnapshots(
   return recorded;
 }
 
-/** Live sync from Alex's Zernio config — called on every dashboard read. */
+/** Live sync from Dave's Zernio config — called on every dashboard read. */
 export async function syncFromZernioConfig(db: FounderDb, today?: string): Promise<number> {
   return syncSocialSnapshots(db, zernioAccounts(), today ?? new Date().toISOString().slice(0, 10));
 }

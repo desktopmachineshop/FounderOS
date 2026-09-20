@@ -6,7 +6,7 @@ import type { ConnectorStatus } from '@/lib/connectors/types';
 import type { CommsItem } from '@/lib/comms';
 
 // WhatsApp ships two separate macOS apps, each with its own group container:
-// the consumer app and WhatsApp Business (SMB). Alex switched to Business,
+// the consumer app and WhatsApp Business (SMB). Dave switched to Business,
 // so we look in both and read whichever database is actually live.
 const WHATSAPP_CONTAINERS = [
   'group.net.whatsapp.WhatsApp.shared', // consumer

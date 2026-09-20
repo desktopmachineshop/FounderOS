@@ -421,7 +421,7 @@ const state = (over: Partial<CameraState> = {}): CameraState => ({
 });
 
 describe('cameraRect', () => {
-  test('rest → the full frame, breathed out a touch (Alex: a bit more zoomed out)', () => {
+  test('rest → the full frame, breathed out a touch (Dave: a bit more zoomed out)', () => {
     const r = cameraRect(VIEW, state());
     expect(r.x).toBeLessThan(0);
     expect(r.y).toBeLessThan(0);

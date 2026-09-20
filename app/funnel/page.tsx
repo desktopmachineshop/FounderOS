@@ -22,7 +22,7 @@ import { attioStatus } from '@/lib/connectors/attio';
 import { ghlStatus } from '@/lib/connectors/ghl';
 import { trakyoStatus } from '@/lib/connectors/trakyo';
 import { metaAdsStatus } from '@/lib/connectors/meta-ads';
-import { getVenture } from '@/lib/ventures';
+import { getVenture, VENTURES } from '@/lib/ventures';
 import { FunnelRadialLazy, FunnelSpaceLazy } from '@/components/FunnelGraphsLazy';
 import { Badge, SectionHead } from '@/components/terminal';
 import {
@@ -37,10 +37,11 @@ import type { ConnectorStatus } from '@/lib/connectors/types';
 
 export const dynamic = 'force-dynamic';
 
+// Built from VENTURES, not hand-listed: adding a business should surface a tab
+// without anyone remembering to come back here.
 const VENTURE_TABS: { id: FunnelVenture | 'all'; label: string }[] = [
   { id: 'all', label: 'All clients' },
-  { id: 'vantage', label: 'Vantage' },
-  { id: 'launchpad-cohort', label: 'Launchpad Cohort' },
+  ...VENTURES.map((v) => ({ id: v.id as FunnelVenture, label: v.label })),
 ];
 
 function usd(amount: number): string {

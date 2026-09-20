@@ -85,7 +85,7 @@ function FlowStep({ title, detail, dashed = false }: { title: string; detail: st
 
 // over the full note set) — too heavy to redo per request on a force-dynamic page, so
 // cache per server process with a short TTL. Never throws: an unreadable
-// store yields undefined and the graph falls back to the plain Alex dot.
+// store yields undefined and the graph falls back to the plain Dave dot.
 
 
 export default async function DoctorPage() {
