@@ -8,6 +8,9 @@ import path from 'node:path';
 // pins /api/funnel to the seeded set — tests never hit the live Attio API.
 beforeAll(() => {
   process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'founder-os-test-')), 'test.db');
+  // These assert on seeded content, so they opt into demo data explicitly.
+  // It is off by default now (lib/data.ts) — an operator's store starts empty.
+  process.env.FOUNDER_OS_DEMO = '1';
   process.env.FUNNEL_PROVIDER = 'seed';
   process.env.GBRAIN_BIN = path.join(tmpdir(), 'founder-os-no-gbrain-cli');
 });

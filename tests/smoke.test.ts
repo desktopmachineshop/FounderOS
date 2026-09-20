@@ -8,6 +8,10 @@ import path from 'node:path';
 // live Attio API in tests.
 beforeAll(() => {
   process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'founder-os-smoke-')), 'test.db');
+  // Renders every page against demo data. The mirror of this — that every page
+  // also renders with the store EMPTY — is the acceptance test for the
+  // not-wired work, and lands with it.
+  process.env.FOUNDER_OS_DEMO = '1';
   process.env.FUNNEL_PROVIDER = 'seed';
   process.env.GBRAIN_BIN = path.join(tmpdir(), 'founder-os-no-gbrain-cli');
 });

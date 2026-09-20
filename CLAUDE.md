@@ -19,13 +19,23 @@ Next.js 14 App Router (server components) + TypeScript + Tailwind +
 better-sqlite3 (`data/founder-os.db`, WAL, auto-seeded on first touch) +
 Zod + Vitest.
 
-## Architecture: larp-first, real-ready
+## Architecture: real by default (2026-09-20)
 
-This is the load-bearing design rule. v1 looks alive because of rich seeded
-data, but every page and API route reads through the repository layer — never
+Upstream's design rule was "larp-first": the app looked alive because of rich
+seeded data. **That is inverted here.** Demo data is gated behind
+`FOUNDER_OS_DEMO` (off by default, `lib/data.ts`), so a real instance starts
+empty and every view shows `NotWired` — what it would show, what source it
+needs, which variable switches it on — rather than a figure nobody earned.
+
+The seed is **not** deleted: it is the fixture a third of the suite is built on,
+and `npm run seed` still seeds on demand. Tests that assert on seeded content
+set `FOUNDER_OS_DEMO=1` explicitly.
+
+Every page and API route still reads through the repository layer — never
 query SQLite directly from a page or route:
 
-- `lib/data.ts` — `getDb()` app singleton; seeds on first touch
+- `lib/data.ts` — `getDb()` app singleton; seeds on first touch **only when
+  `FOUNDER_OS_DEMO` is set** (`demoDataEnabled()`)
 - `lib/db.ts` — `openDb()` + repos (`departments`, `agents`, `metrics`, `tools`, …)
 - `lib/seed.ts` — all seeded content lives here
 - `lib/schemas.ts` — Zod schemas validate every row on the way OUT of the DB

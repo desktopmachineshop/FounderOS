@@ -5,6 +5,7 @@ import path from 'node:path';
 
 beforeAll(() => {
   process.env.FOUNDER_OS_DB = path.join(mkdtempSync(path.join(tmpdir(), 'founder-os-apismoke-')), 'test.db');
+  process.env.FOUNDER_OS_DEMO = '1'; // these exercise routes against seeded rows
   process.env.FUNNEL_PROVIDER = 'seed'; // keep /api/funnel off the live Attio API in tests
 });
 
