@@ -13,6 +13,20 @@ const WHATSAPP_CONTAINERS = [
   'group.net.whatsapp.WhatsAppSMB.shared', // Business
 ];
 
+/**
+ * WhatsApp Desktop keeps a readable ChatStorage.sqlite only inside a macOS
+ * group container. On Windows and Linux there is no equivalent to read, so the
+ * honest answer is "this platform", not "not configured" — the latter implies
+ * a setup step that does not exist.
+ */
+export function whatsappSupported(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'darwin';
+}
+
+export function whatsappUnsupportedDetail(platform: NodeJS.Platform = process.platform): string {
+  return `WhatsApp Desktop exposes a readable message store only on macOS; this host is ${platform}.`;
+}
+
 /** Candidate ChatStorage.sqlite paths, one per known WhatsApp container. */
 export function whatsappContainerPaths(): string[] {
   return WHATSAPP_CONTAINERS.map((container) =>
@@ -130,6 +144,15 @@ export async function whatsappStatus(): Promise<ConnectorStatus> {
   if (statusCache && now - statusCache.at < STATUS_TTL_MS) return statusCache.status;
 
   const base = { id: 'whatsapp', name: 'WhatsApp', kind: 'social' as const };
+
+  // Off macOS there is no store to look for, so say so rather than reporting a
+  // missing file as though signing in would fix it.
+  if (!whatsappSupported()) {
+    const status: ConnectorStatus = { ...base, state: 'not_configured', detail: whatsappUnsupportedDetail() };
+    statusCache = { at: now, status };
+    return status;
+  }
+
   const dbPath = resolveChatDb();
   let status: ConnectorStatus;
 

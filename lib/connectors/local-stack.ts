@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { whichSync } from '@/lib/media-bins';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
 /**
@@ -39,7 +40,17 @@ function tmuxSessions(): Promise<number> {
 }
 
 const HOME = os.homedir();
-const BREW = '/opt/homebrew/bin';
+
+/**
+ * Tool presence is a PATH question, not a homebrew question. These used to
+ * probe `/opt/homebrew/bin` literally, so on the Windows workstation every
+ * binary read as "down" even when installed. `whichSync` looks a command up
+ * the way the OS does (PATHEXT included), and the explicit paths stay as a
+ * fallback for installs that are not on PATH.
+ */
+function toolUp(command: string, ...fallbacks: string[]): boolean {
+  return Boolean(whichSync(command) ?? binExists(...fallbacks));
+}
 
 export async function localStackStatus(): Promise<ConnectorStatus> {
   const [commandCenter, remotionStudio, ollama, openclawGateway, tmuxCount] = await Promise.all([
@@ -64,22 +75,22 @@ export async function localStackStatus(): Promise<ConnectorStatus> {
     { name: 'tmux', up: tmuxCount > 0, detail: `${tmuxCount} sessions` },
     {
       name: 'whisper',
-      up: Boolean(binExists(`${BREW}/whisper-cli`, '/usr/local/bin/whisper-cli')),
+      up: toolUp('whisper-cli', '/opt/homebrew/bin/whisper-cli', '/usr/local/bin/whisper-cli'),
       detail: 'local transcription',
     },
     {
       name: 'ffmpeg',
-      up: Boolean(binExists(`${BREW}/ffmpeg`, '/usr/local/bin/ffmpeg')),
+      up: toolUp('ffmpeg', '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'),
       detail: 'media processing',
     },
     {
       name: 'higgsfield',
-      up: Boolean(binExists(path.join(HOME, '.npm-global', 'bin', 'higgsfield'), `${BREW}/higgsfield`)),
+      up: toolUp('higgsfield', path.join(HOME, '.npm-global', 'bin', 'higgsfield'), '/opt/homebrew/bin/higgsfield'),
       detail: 'AI video CLI',
     },
     {
       name: 'gh',
-      up: Boolean(binExists(`${BREW}/gh`, '/usr/local/bin/gh')),
+      up: toolUp('gh', '/opt/homebrew/bin/gh', '/usr/local/bin/gh'),
       detail: 'GitHub CLI',
     },
   ];

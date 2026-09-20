@@ -4,21 +4,48 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
-const WISPR_DB = path.join(os.homedir(), 'Library', 'Application Support', 'Wispr Flow', 'flow.sqlite');
+/**
+ * Where Wispr Flow keeps its database.
+ *
+ * `WISPR_DB` wins everywhere. Otherwise only macOS has a default: this repo has
+ * not verified where Wispr Flow stores its database on Windows, and a guessed
+ * `%APPDATA%` path would report "not installed" for an app that is installed —
+ * a worse answer than admitting we do not know.
+ */
+export function wisprDbPath(
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  const explicit = env.WISPR_DB?.trim();
+  if (explicit) return explicit;
+  if (platform !== 'darwin') return null;
+  const home = env.HOME ?? os.homedir();
+  return path.join(home, 'Library', 'Application Support', 'Wispr Flow', 'flow.sqlite');
+}
 
 /**
- * Wispr Flow (voice dictation) — Dave's heaviest daily-use tool. Local
- * read-only SQLite; tables of interest: History (dictations), Notes, Todos,
- * Meetings.
+ * Wispr Flow (voice dictation). Local read-only SQLite; tables of interest:
+ * History (dictations), Notes, Todos, Meetings.
  */
 export async function wisprStatus(): Promise<ConnectorStatus> {
+  const WISPR_DB = wisprDbPath();
+  if (!WISPR_DB) {
+    return {
+      id: 'wispr',
+      name: 'Wispr Flow',
+      kind: 'local',
+      state: 'not_configured',
+      detail:
+        'No default location for Wispr Flow on this platform — set WISPR_DB to the full path of flow.sqlite.',
+    };
+  }
   if (!fs.existsSync(WISPR_DB)) {
     return {
       id: 'wispr',
       name: 'Wispr Flow',
       kind: 'local',
       state: 'not_configured',
-      detail: 'flow.sqlite not found — is Wispr Flow installed?',
+      detail: `flow.sqlite not found at ${WISPR_DB} — is Wispr Flow installed? Set WISPR_DB to override.`,
     };
   }
   try {

@@ -87,7 +87,9 @@ export async function obsidianStatus(): Promise<ConnectorStatus> {
       kind: 'knowledge',
       state: 'error',
       detail:
-        'Vault exists but macOS denied access — grant the terminal "Files and Folders → Documents" in System Settings → Privacy.',
+        process.platform === 'darwin'
+          ? 'Vault exists but macOS denied access — grant the terminal "Files and Folders → Documents" in System Settings → Privacy.'
+          : 'Vault exists but could not be read — check the permissions on OBSIDIAN_VAULT.',
     };
   }
   const notes = countMarkdown(VAULT);

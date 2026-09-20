@@ -26,17 +26,21 @@ This is not a preference. Two sets of things in this repo are physically bound
 to different machines, and neither set can move.
 
 **Bound to the workstation** — these read the local filesystem, localhost
-ports, or macOS app containers. On a cloud host they cannot work at all, no
-matter what credentials you supply:
+ports, or a desktop app's own storage. On a cloud host they cannot work at all,
+no matter what credentials you supply.
 
-| Connector | What it needs |
-| --- | --- |
-| `local-stack.ts` | Remotion studio on `:3789`, `whisper-cli`, ollama on `:11434`, tmux, command-center on `:4000` |
-| `wispr.ts` | `~/Library/Application Support/Wispr Flow/flow.sqlite` |
-| `whatsapp.ts` | `~/Library/Group Containers/…/ChatStorage.sqlite` |
-| `obsidian.ts` | the vault directory on disk |
-| `gbrain.ts` | the `gbrain` CLI and `~/knowledge/brain-store` |
-| `zernio.ts` (partly) | `~/.config/social/config.json` for the account list — the API key itself comes from env, so live follower counts *do* work in the cloud |
+The workstation here is a **Windows PC**. Several of these connectors were
+written against macOS and are marked accordingly — they are not evidence that
+the workstation must be a Mac:
+
+| Connector | What it needs | On Windows |
+| --- | --- | --- |
+| `local-stack.ts` | Remotion studio on `:3789`, `whisper-cli`, ollama on `:11434`, tmux, command-center on `:4000` | works — tools are looked up on PATH |
+| `wispr.ts` | Wispr Flow's `flow.sqlite` | set `WISPR_DB`; there is no verified default |
+| `whatsapp.ts` | a readable `ChatStorage.sqlite` | **unsupported** — only macOS exposes one |
+| `obsidian.ts` | the vault directory on disk | works — set `OBSIDIAN_VAULT` |
+| `gbrain.ts` | the `gbrain` CLI and `~/knowledge/brain-store` | works if the CLI is installed |
+| `zernio.ts` (partly) | `~/.config/social/config.json` for the account list — the API key itself comes from env, so live follower counts *do* work in the cloud | works |
 
 **Bound to the cloud** — these need a machine that is up and reachable:
 
