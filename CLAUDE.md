@@ -72,6 +72,14 @@ Dave's directive: real integrations, not larp. Strict black & white theme
   and no caller-supplied model reaches `execute_kw`. Env names match the
   `odoo-product-info` skill (`ODOO_URL`/`ODOO_DB`/`ODOO_USER`/`ODOO_API_KEY`)
   so an instance set up for that skill needs nothing re-entered.
+  Order reads (`odooOrders`, `odooRevenue`) carry two more decisions that are
+  accounting, not formatting: only `ORDER_REVENUE_STATES` (`sale`, `done`)
+  count as revenue — abandoned web checkouts sit in `draft` forever and would
+  inflate everything — and totals are grouped per **(venture, currency)**,
+  never summed across currencies, because the .com and .co.uk stores do not
+  bill in the same one. Odoo datetimes are naive UTC strings with no zone
+  marker, so every date goes through `odooDateToIso` or it shifts by the
+  reader's offset.
 - `lib/creds.ts` — credential resolution: process.env first, then Dave's
   canonical files at runtime. NEVER copy secret values into this repo.
 - `lib/agents/runtime.ts` + `real.ts` — agent registry; every seeded agent row

@@ -1,5 +1,13 @@
 import { VENTURES } from '@/lib/ventures';
-import { OdooProductSchema, OdooWebsiteSchema, type OdooProduct, type OdooWebsite } from '@/lib/schemas';
+import {
+  OdooProductSchema,
+  OdooWebsiteSchema,
+  OdooOrderSchema,
+  type OdooProduct,
+  type OdooWebsite,
+  type OdooOrder,
+  type OdooRevenueRow,
+} from '@/lib/schemas';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
 /**
@@ -127,16 +135,27 @@ function hostOf(value: unknown): string | null {
 }
 
 /**
- * Which venture owns an Odoo website, by domain. The venture URLs in
- * `lib/ventures.ts` are the single source — the two lists cannot drift because
- * this one is derived. An unrecognised domain is null: an unattributed row is
- * honest, a guessed one is not.
+ * Which venture owns an Odoo website. The venture list in `lib/ventures.ts` is
+ * the single source — this mapping is derived, so the two cannot drift.
+ *
+ * Domain first. When a site has no domain set (the field is optional and
+ * plenty of live instances leave it blank) an **exact** venture label match is
+ * accepted instead: an exact match is a match, a fuzzy one would be a guess.
+ * Anything else is null, because an unattributed row is honest and a
+ * misattributed one silently moves revenue between businesses.
  */
-export function ventureForOdooWebsite(domain: unknown): string | null {
+export function ventureForOdooWebsite(domain: unknown, name?: unknown): string | null {
   const host = hostOf(domain);
-  if (!host) return null;
-  for (const v of VENTURES) {
-    if (hostOf(v.url) === host) return v.id;
+  if (host) {
+    for (const v of VENTURES) {
+      if (hostOf(v.url) === host) return v.id;
+    }
+  }
+  const label = str(name)?.trim().toLowerCase();
+  if (label) {
+    for (const v of VENTURES) {
+      if (v.label.toLowerCase() === label) return v.id;
+    }
   }
   return null;
 }
@@ -151,11 +170,95 @@ export function mapOdooWebsites(rows: unknown[]): OdooWebsite[] {
       id: r.id,
       name: str(r.name) ?? '',
       domain: str(r.domain),
-      venture: ventureForOdooWebsite(r.domain),
+      venture: ventureForOdooWebsite(r.domain, r.name),
     });
     if (parsed.success) out.push(parsed.data);
   }
   return out;
+}
+
+/**
+ * Odoo hands back datetimes as naive strings in UTC — "2026-09-19 14:32:11",
+ * with no zone marker. Handed to `new Date()` on a machine that is not on UTC,
+ * that parses as *local* time and shifts every order by the offset, quietly
+ * moving sales across day boundaries. Every date crosses this function.
+ */
+export function odooDateToIso(value: unknown): string | null {
+  const raw = str(value);
+  if (!raw) return null;
+  const zoned = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`;
+  const d = new Date(zoned);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** website id → venture id (or null), for attributing orders. */
+export function websiteVentureMap(websites: OdooWebsite[]): Map<number, string | null> {
+  return new Map(websites.map((w) => [w.id, w.venture]));
+}
+
+/**
+ * The states Odoo treats as sold. Abandoned web checkouts sit in `draft`
+ * forever and quotations in `sent`, so counting either would inflate every
+ * number on the dashboard; `cancel` is self-explanatory.
+ */
+export const ORDER_REVENUE_STATES: ReadonlySet<string> = new Set(['sale', 'done']);
+
+const ORDER_FIELDS = [
+  'name',
+  'date_order',
+  'state',
+  'partner_id',
+  'website_id',
+  'currency_id',
+  'amount_total',
+  'amount_untaxed',
+  'amount_tax',
+];
+
+/** Map `sale.order` rows, attributing each to a venture via its website. */
+export function mapOdooOrders(rows: unknown[], ventures: Map<number, string | null>): OdooOrder[] {
+  const out: OdooOrder[] = [];
+  for (const raw of rows ?? []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const website = Array.isArray(r.website_id) && typeof r.website_id[0] === 'number' ? r.website_id[0] : null;
+    const parsed = OdooOrderSchema.safeParse({
+      id: r.id,
+      ref: str(r.name) ?? '',
+      at: odooDateToIso(r.date_order),
+      state: str(r.state) ?? '',
+      customer: str(r.partner_id),
+      websiteId: website,
+      venture: website === null ? null : ventures.get(website) ?? null,
+      currency: str(r.currency_id),
+      amountTotal: num(r.amount_total) ?? 0,
+      amountUntaxed: num(r.amount_untaxed),
+      amountTax: num(r.amount_tax),
+    });
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
+/**
+ * Confirmed revenue per venture, **split by currency**. The .com store and the
+ * .co.uk store do not bill in the same currency, and adding 100 USD to 100 GBP
+ * produces a number that is true of nothing — so a venture with two currencies
+ * gets two rows and a display can show both. Unattributed orders keep a null
+ * venture rather than disappearing. Biggest total first.
+ */
+export function revenueByVenture(orders: OdooOrder[]): OdooRevenueRow[] {
+  const acc = new Map<string, OdooRevenueRow>();
+  for (const o of orders) {
+    if (!ORDER_REVENUE_STATES.has(o.state)) continue;
+    const key = `${o.venture ?? ''}\u0000${o.currency ?? ''}`;
+    const row = acc.get(key) ?? { venture: o.venture, currency: o.currency, orders: 0, total: 0 };
+    row.orders += 1;
+    // Money in float cents: round at the accumulator, not at display time.
+    row.total = Math.round((row.total + o.amountTotal) * 100) / 100;
+    acc.set(key, row);
+  }
+  return [...acc.values()].sort((a, b) => b.total - a.total);
 }
 
 // ── Transport ──────────────────────────────────────────────────────────────
@@ -269,6 +372,59 @@ export async function odooWebsites(
   }
 }
 
+/**
+ * Confirmed sale orders, newest first, already attributed to ventures.
+ *
+ * The websites are fetched first because attribution depends on them; when the
+ * Website module is absent every order simply comes back unattributed rather
+ * than the read failing. Never throws — [] on any failure, so a caller falls
+ * back to seeded data instead of rendering an error.
+ */
+export async function odooOrders(
+  env: Record<string, string | undefined>,
+  opts: { limit?: number; since?: string; fetchImpl?: typeof fetch } = {},
+): Promise<OdooOrder[]> {
+  const resolved = resolveOdooConfig(env);
+  if (!resolved.ok) return [];
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  try {
+    const uid = await odooAuthenticate(resolved.config, fetchImpl);
+
+    let ventures = new Map<number, string | null>();
+    try {
+      const sites = await read(
+        resolved.config, uid, 'website', 'search_read', [[]], { fields: ['name', 'domain'] }, fetchImpl,
+      );
+      ventures = websiteVentureMap(mapOdooWebsites(Array.isArray(sites) ? sites : []));
+    } catch {
+      // No Website module — orders stay unattributed, which is honest.
+    }
+
+    const domain: unknown[] = [['state', 'in', [...ORDER_REVENUE_STATES]]];
+    if (opts.since) domain.push(['date_order', '>=', opts.since]);
+    const rows = await read(
+      resolved.config,
+      uid,
+      'sale.order',
+      'search_read',
+      [domain],
+      { fields: ORDER_FIELDS, limit: opts.limit ?? 500, order: 'date_order desc' },
+      fetchImpl,
+    );
+    return mapOdooOrders(Array.isArray(rows) ? rows : [], ventures);
+  } catch {
+    return [];
+  }
+}
+
+/** Confirmed revenue per venture and currency. [] when unconfigured. */
+export async function odooRevenue(
+  env: Record<string, string | undefined>,
+  opts: { limit?: number; since?: string; fetchImpl?: typeof fetch } = {},
+): Promise<OdooRevenueRow[]> {
+  return revenueByVenture(await odooOrders(env, opts));
+}
+
 const NAME = 'Odoo (ERP + stores)';
 
 function status(state: ConnectorStatus['state'], detail: string, meta?: ConnectorStatus['meta']): ConnectorStatus {
@@ -308,10 +464,25 @@ export async function odooStatus(
       websites.length > 0
         ? ` · ${websites.length} website${websites.length === 1 ? '' : 's'}, ${ventures} mapped to a venture`
         : ' · website module not reporting';
-    return status('connected', `${products} sellable products${siteNote}`, {
+
+    // Confirmed orders only — see ORDER_REVENUE_STATES. Optional: an instance
+    // without the Sales app still connects, it just has no orders to report.
+    let orders: number | null = null;
+    try {
+      const n = await read(
+        config, uid, 'sale.order', 'search_count', [[['state', 'in', [...ORDER_REVENUE_STATES]]]], {}, fetchImpl,
+      );
+      if (typeof n === 'number') orders = n;
+    } catch {
+      orders = null;
+    }
+    const orderNote = orders === null ? '' : ` · ${orders} confirmed orders`;
+
+    return status('connected', `${products} sellable products${siteNote}${orderNote}`, {
       products,
       websites: websites.length,
       ventures,
+      ...(orders === null ? {} : { orders }),
       uid,
     });
   } catch (err) {
