@@ -14,16 +14,18 @@
  *   FOUNDER_OS_WORKER_TOKEN  the shared token, same value as the server's
  *   FOUNDER_OS_MEDIA_ROOT    directory every job path resolves inside
  *   REMOTION_PROJECT_DIR     Remotion checkout (omit → cannot render)
- *   WHISPER_BIN / FFMPEG_BIN tool paths (omit → cannot transcribe / cut)
+ *   WHISPER_BIN / FFMPEG_BIN explicit tool paths; omit and they are looked up
+ *                            on PATH (Windows: PATHEXT-aware), then in the
+ *                            usual install locations for the platform
  *   FOUNDER_OS_WORKER_ID     defaults to the hostname
  *   WORKER_POLL_MS           idle poll interval, default 5s
  */
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { hostname } from 'node:os';
 import path from 'node:path';
 import { describeMediaJob, MediaJobSchema, type MediaJob } from '@/lib/media-jobs';
 import { planCommand, supportedKinds, type RunnerConfig } from '@/lib/media-runner';
+import { resolveTools, unsupportedKinds } from '@/lib/media-bins';
 
 const SERVER = (process.env.FOUNDER_OS_URL ?? '').replace(/\/$/, '');
 const TOKEN = process.env.FOUNDER_OS_WORKER_TOKEN ?? '';
@@ -32,20 +34,12 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 /** A render can legitimately take a while; beyond this something is wrong. */
 const JOB_TIMEOUT_MS = Number(process.env.WORKER_JOB_TIMEOUT_MS ?? 20 * 60 * 1000);
 
-function binIfPresent(value: string | undefined, ...fallbacks: string[]): string | null {
-  const candidates = [value, ...fallbacks].filter(Boolean) as string[];
-  return candidates.find((c) => existsSync(c)) ?? null;
-}
-
+// Tools are looked up the way the OS would (PATH, plus PATHEXT on Windows)
+// before falling back to per-platform install locations — see lib/media-bins.
 const config: RunnerConfig = {
   mediaRoot: path.resolve(process.env.FOUNDER_OS_MEDIA_ROOT ?? path.join(process.cwd(), 'media')),
   remotionProject: process.env.REMOTION_PROJECT_DIR ?? null,
-  whisperBin: binIfPresent(
-    process.env.WHISPER_BIN,
-    '/opt/homebrew/bin/whisper-cli',
-    '/usr/local/bin/whisper-cli',
-  ),
-  ffmpegBin: binIfPresent(process.env.FFMPEG_BIN, '/opt/homebrew/bin/ffmpeg', '/usr/bin/ffmpeg'),
+  ...resolveTools({ whisper: process.env.WHISPER_BIN, ffmpeg: process.env.FFMPEG_BIN }),
 };
 
 const log = (...parts: unknown[]) =>
@@ -121,10 +115,11 @@ async function main(): Promise<void> {
   }
 
   const kinds = supportedKinds(config);
+  const missing = unsupportedKinds(config);
+
   if (kinds.length === 0) {
-    console.error(
-      'media-worker: this host has none of the tools configured — set REMOTION_PROJECT_DIR, WHISPER_BIN or FFMPEG_BIN',
-    );
+    console.error('media-worker: this host cannot run any job kind:');
+    for (const m of missing) console.error(`  ${m.kind}: ${m.reason}`);
     process.exitCode = 1;
     return;
   }
@@ -132,6 +127,9 @@ async function main(): Promise<void> {
   log(`worker ${WORKER_ID} → ${SERVER}`);
   log(`media root ${config.mediaRoot}`);
   log(`can run: ${kinds.join(', ')}`);
+  // Say what is missing and why. A worker that silently claims nothing looks
+  // healthy while doing nothing — the failure this whole pass exists to fix.
+  for (const m of missing) log(`cannot run ${m.kind}: ${m.reason}`);
 
   let running = true;
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
