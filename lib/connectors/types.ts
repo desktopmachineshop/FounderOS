@@ -12,6 +12,7 @@ export type ConnectorKind =
   | 'ads'
   | 'creative'
   | 'knowledge'
+  | 'commerce'
   | 'local'
   | 'orchestration';
 

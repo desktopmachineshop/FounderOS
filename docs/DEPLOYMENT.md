@@ -48,8 +48,8 @@ matter what credentials you supply:
 
 **Everything else works on either host**, because it is a network API reading
 credentials from the environment: email/IMAP, Slack, Stripe, Notion, calendar,
-GHL, Attio, Beehiiv, ManyChat, Meta Ads, Trakyo, WebinarJam, Adsmith, Miro, and
-the LLM gateway.
+Odoo, GHL, Attio, Beehiiv, ManyChat, Meta Ads, Trakyo, WebinarJam, Adsmith,
+Miro, and the LLM gateway.
 
 So: video and local knowledge stay on the workstation, webhooks and scheduling
 live in the cloud, and the shared Postgres is what stops them from becoming two

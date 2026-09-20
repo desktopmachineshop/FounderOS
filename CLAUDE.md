@@ -49,15 +49,29 @@ back to local brain-store grep when the database is unreachable. Default
 Dave's directive: real integrations, not larp. Strict black & white theme
 (UI polish deferred — he'll design it himself once everything is wired).
 
-- `lib/connectors/` — 12 connector groups, all returning honest
+- `lib/connectors/` — 13 connector groups, all returning honest
   `ConnectorStatus` (never fake "connected"): `email.ts` (4 IMAP slots),
   `slack.ts`, `payments.ts` (Stripe + registry), `notion.ts`, `gbrain.ts`,
+  `odoo.ts` (ERP behind three of the four businesses — see below),
   `zernio.ts` (key from ~/.config/social/.env — LIVE), `attio.ts` (key reused
   from ~/.config/mcp.json mcpServers — LIVE), `arcads.ts` (local `.env` —
   LIVE), `miro.ts` (knowledge/.env.agents — LIVE),
   `wispr.ts` (local flow.sqlite readonly — LIVE), `obsidian.ts` (vault fs;
   needs macOS Documents permission), `local-stack.ts` (local service ports
   + tmux + brew binaries).
+- **Odoo** (`lib/connectors/odoo.ts`) is the system of record for Desktop
+  Machine Shop, DMS Industrial and 3DPandMe — three websites on ONE instance,
+  so one credential serves three ventures and rows are attributed by mapping
+  the website domain back to `lib/ventures.ts` (`ventureForOdooWebsite`).
+  OpenV is not on Odoo. Transport is **JSON-RPC** (`POST /jsonrpc`), not the
+  XML-RPC the Odoo docs lead with — same API, no XML dependency. Two gotchas
+  are load-bearing and tested: Odoo answers faults with **HTTP 200** plus an
+  `error` envelope (so `res.ok` proves nothing — everything goes through
+  `parseOdooResponse`), and it returns `false` for an empty value (normalised
+  to `null`, never `0`). Read-only by construction: no write method is called
+  and no caller-supplied model reaches `execute_kw`. Env names match the
+  `odoo-product-info` skill (`ODOO_URL`/`ODOO_DB`/`ODOO_USER`/`ODOO_API_KEY`)
+  so an instance set up for that skill needs nothing re-entered.
 - `lib/creds.ts` — credential resolution: process.env first, then Dave's
   canonical files at runtime. NEVER copy secret values into this repo.
 - `lib/agents/runtime.ts` + `real.ts` — agent registry; every seeded agent row

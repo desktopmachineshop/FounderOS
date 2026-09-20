@@ -484,6 +484,33 @@ export const RosterClientSchema = z.object({
   source: z.enum(['attio', 'funnel']),
 });
 
+// ── Odoo — the ERP behind three of the four businesses ──────────────────────
+// Validated on the way out of the JSON-RPC boundary. Every commercial field is
+// nullable on purpose: Odoo returns `false` for an empty value, and a field can
+// be absent entirely when its module is not installed. A null here means "Odoo
+// did not tell us", which is the honest answer — never 0.
+export const OdooProductSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  sku: z.string().nullable(),
+  barcode: z.string().nullable(),
+  listPrice: z.number().nullable(),
+  cost: z.number().nullable(),
+  category: z.string().nullable(),
+  weightKg: z.number().nullable(),
+  onHand: z.number().nullable(),
+  active: z.boolean(),
+  saleOk: z.boolean(),
+});
+
+export const OdooWebsiteSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  domain: z.string().nullable(),
+  /** The venture this website belongs to, or null when nothing matches. */
+  venture: z.string().nullable(),
+});
+
 // ── Funnel — client journeys from first touch to conversion ─────────────────
 // Canonical stages; `nurtured` is optional so a journey renders as 4–5 touches.
 export const FunnelStageSchema = z.enum(['first_touch', 'engaged', 'nurtured', 'opted_in', 'converted']);
@@ -606,6 +633,8 @@ export type Person = z.infer<typeof PersonSchema>;
 export type SopAssigneeKind = z.infer<typeof SopAssigneeKindSchema>;
 export type SopTask = z.infer<typeof SopTaskSchema>;
 export type RosterClient = z.infer<typeof RosterClientSchema>;
+export type OdooProduct = z.infer<typeof OdooProductSchema>;
+export type OdooWebsite = z.infer<typeof OdooWebsiteSchema>;
 export type FunnelStage = z.infer<typeof FunnelStageSchema>;
 export type FunnelRelationship = z.infer<typeof FunnelRelationshipSchema>;
 export type FunnelVenture = z.infer<typeof FunnelVentureSchema>;

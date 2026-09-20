@@ -58,6 +58,7 @@ export const INTEGRATIONS: Integration[] = [
   { slug: 'quickbooks', name: 'QuickBooks', tagline: 'Bookkeeping & P&L', category: 'Finance' },
   { slug: 'xero', name: 'Xero', tagline: 'Accounting & bills', category: 'Finance' },
   { slug: 'paypal', name: 'PayPal', tagline: 'Payments & payouts', category: 'Finance', envKeys: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET'] },
+  { slug: 'odoo', name: 'Odoo', tagline: 'ERP, web stores & stock', category: 'Finance', connectorId: 'odoo', popular: true, envKeys: ['ODOO_URL', 'ODOO_DB', 'ODOO_USER', 'ODOO_API_KEY'] },
   { slug: 'wise', name: 'Wise', tagline: 'Multi-currency balances', category: 'Finance' },
   { slug: 'plaid', name: 'Plaid', tagline: 'Bank connections', category: 'Finance' },
 
