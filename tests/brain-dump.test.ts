@@ -19,21 +19,21 @@ describe('writeBrainDump', () => {
   test('writes a markdown memory file with frontmatter into the chosen folder', () => {
     const dir = store();
     const result = writeBrainDump(
-      { text: 'Student Sarah closed her first client today. Huge win for LC.', title: 'Sarah first client', folder: 'inbox', tags: ['launchpad-cohort'] },
+      { text: 'Student Sarah closed her first client today. Huge win for LC.', title: 'Sarah first client', folder: 'inbox', tags: ['openv'] },
       dir,
     );
     expect(result.relPath.startsWith('inbox/')).toBe(true);
     const content = readFileSync(path.join(dir, result.relPath), 'utf8');
     expect(content).toContain('# Sarah first client');
     expect(content).toContain('Student Sarah closed her first client');
-    expect(content).toMatch(/tags: \[launchpad-cohort\]/);
+    expect(content).toMatch(/tags: \[openv\]/);
     expect(content).toContain('source: founder-os-brain-dump');
   });
 
   test('derives a title from the first words when none given', () => {
     const dir = store();
-    const result = writeBrainDump({ text: 'Vantage retainer should move to monthly billing cycle', folder: 'ideas', tags: [] }, dir);
-    expect(result.title.toLowerCase()).toContain('vantage retainer');
+    const result = writeBrainDump({ text: 'OpenV retainer should move to monthly billing cycle', folder: 'ideas', tags: [] }, dir);
+    expect(result.title.toLowerCase()).toContain('openv retainer');
     expect(existsSync(path.join(dir, result.relPath))).toBe(true);
   });
 

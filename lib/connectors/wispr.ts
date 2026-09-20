@@ -7,7 +7,7 @@ import type { ConnectorStatus } from '@/lib/connectors/types';
 const WISPR_DB = path.join(os.homedir(), 'Library', 'Application Support', 'Wispr Flow', 'flow.sqlite');
 
 /**
- * Wispr Flow (voice dictation) — Alex's heaviest daily-use tool. Local
+ * Wispr Flow (voice dictation) — Dave's heaviest daily-use tool. Local
  * read-only SQLite; tables of interest: History (dictations), Notes, Todos,
  * Meetings.
  */

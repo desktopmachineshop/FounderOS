@@ -276,7 +276,7 @@ export const SocialAccountSchema = z.object({
 });
 
 // One row per platform per day. History accrues from the Zernio config on
-// every dashboard read; Alex's own scrapes can insert richer rows later.
+// every dashboard read; Dave's own scrapes can insert richer rows later.
 export const SocialSnapshotSchema = z.object({
   platform: SocialPlatformSchema,
   capturedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'capturedAt must look like 2026-06-13'),
@@ -435,7 +435,7 @@ export const WorkflowStepSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   ownerKind: WorkflowOwnerKindSchema,
-  owner: z.string().min(1), // "Alex · Founder" / "SDR Agent"
+  owner: z.string().min(1), // "Dave · Founder" / "SDR Agent"
   hoursPerWeek: z.number().nonnegative(),
   tools: z.array(z.string()), // tool slugs (same namespace as agents)
   edgeLabel: z.string().nullable(), // label on the edge INTO the next step
@@ -484,17 +484,49 @@ export const RosterClientSchema = z.object({
   source: z.enum(['attio', 'funnel']),
 });
 
+// ── Odoo — the ERP behind three of the four businesses ──────────────────────
+// Validated on the way out of the JSON-RPC boundary. Every commercial field is
+// nullable on purpose: Odoo returns `false` for an empty value, and a field can
+// be absent entirely when its module is not installed. A null here means "Odoo
+// did not tell us", which is the honest answer — never 0.
+export const OdooProductSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  sku: z.string().nullable(),
+  barcode: z.string().nullable(),
+  listPrice: z.number().nullable(),
+  cost: z.number().nullable(),
+  category: z.string().nullable(),
+  weightKg: z.number().nullable(),
+  onHand: z.number().nullable(),
+  active: z.boolean(),
+  saleOk: z.boolean(),
+});
+
+export const OdooWebsiteSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  domain: z.string().nullable(),
+  /** The venture this website belongs to, or null when nothing matches. */
+  venture: z.string().nullable(),
+});
+
 // ── Funnel — client journeys from first touch to conversion ─────────────────
 // Canonical stages; `nurtured` is optional so a journey renders as 4–5 touches.
 export const FunnelStageSchema = z.enum(['first_touch', 'engaged', 'nurtured', 'opted_in', 'converted']);
-export const FunnelVentureSchema = z.enum(['vantage', 'launchpad-cohort']);
+export const FunnelVentureSchema = z.enum([
+  'desktop-machine-shop',
+  'dms-industrial',
+  '3dpandme',
+  'openv',
+]);
 export const FunnelChannelSchema = z.enum(['organic', 'ads', 'dm', 'email', 'webinar', 'call', 'checkout', 'crm']);
 // Where each touch comes from: Trakyo (organic attribution), Meta Ads MCP
 // (paid), Attio (live CRM pipeline), manual otherwise. Seeded rows carry the
 // intended source so the live swap is a repo-level change.
 export const FunnelSourceSchema = z.enum(['trakyo', 'meta-ads', 'attio', 'ghl', 'manual']);
 
-// Relationship temperature with Alex — with likelihood-to-buy (0–100) it
+// Relationship temperature with Dave — with likelihood-to-buy (0–100) it
 // drives how a client node renders in the funnel space. Seeded dummy; later
 // computed from CRM (Attio) + Trakyo engagement.
 export const FunnelRelationshipSchema = z.enum(['cold', 'warm', 'hot']);
@@ -601,6 +633,8 @@ export type Person = z.infer<typeof PersonSchema>;
 export type SopAssigneeKind = z.infer<typeof SopAssigneeKindSchema>;
 export type SopTask = z.infer<typeof SopTaskSchema>;
 export type RosterClient = z.infer<typeof RosterClientSchema>;
+export type OdooProduct = z.infer<typeof OdooProductSchema>;
+export type OdooWebsite = z.infer<typeof OdooWebsiteSchema>;
 export type FunnelStage = z.infer<typeof FunnelStageSchema>;
 export type FunnelRelationship = z.infer<typeof FunnelRelationshipSchema>;
 export type FunnelVenture = z.infer<typeof FunnelVentureSchema>;

@@ -1,9 +1,9 @@
 /**
- * The OS mark — the ring-and-S logo from Alex's Founder OS brand assets
+ * The OS mark — the ring-and-S logo from Dave's Founder OS brand assets
  * (os-mark.png), recreated as a crisp inline vector so it scales and themes.
  * Ring proportions calibrated against the source PNG (r 30.8 / stroke 6.64
  * on a 100 box); the seam is the half-radius arc pair stood UPRIGHT as a
- * letter S — Alex's call (2026-07-13): the S runs vertical like the O,
+ * letter S — Dave's call (2026-07-13): the S runs vertical like the O,
  * never the lying-down wave. Brand red #ef4444 by default; pass `color` to
  * re-ink it. (And the OS logo only — never the "Founder" wordmark.)
  */

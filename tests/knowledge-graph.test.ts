@@ -64,7 +64,7 @@ const tasks: SopTask[] = [
 const build = () => buildKnowledgeGraph(agents, departments, people, tasks);
 
 describe('buildKnowledgeGraph — dept → task → worker → tools chain', () => {
-  test('a single Alex center node on ring 0, linked to every team (pillar edges)', () => {
+  test('a single Dave center node on ring 0, linked to every team (pillar edges)', () => {
     const { nodes, edges } = build();
     const self = nodes.filter((n) => n.kind === 'self');
     expect(self).toHaveLength(1);

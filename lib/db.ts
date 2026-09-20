@@ -7,6 +7,7 @@ import {
   type MediaJobStatus,
 } from '@/lib/media-jobs';
 import { isValidCron } from '@/lib/cron';
+import { RETIRED_VENTURE_IDS } from '@/lib/ventures';
 import {
   AgentCronSchema,
   AgentMessageSchema,
@@ -404,6 +405,23 @@ function rowToAgent(row: AgentRow): Agent {
   });
 }
 
+/**
+ * Ventures were renamed when the OS moved off its example businesses.
+ * `funnel_contacts.venture` is Zod-validated on the way out, so a row left on
+ * a retired id throws on read instead of rendering. Rewrite them on open, so
+ * an existing store survives the rename without being wiped.
+ */
+async function migrateFunnelVentures(db: SqlDriver): Promise<void> {
+  const columns = await db.columns('funnel_contacts');
+  if (!columns.has('venture')) return; // table not built yet
+  for (const [retired, replacement] of Object.entries(RETIRED_VENTURE_IDS)) {
+    await db.run('UPDATE funnel_contacts SET venture = ? WHERE venture = ?', [
+      replacement,
+      retired,
+    ]);
+  }
+}
+
 /** lead_magnets gained `origin` when the operator started creating them from the
  *  OS; older databases predate the column. */
 async function migrateLeadMagnetsTable(db: SqlDriver): Promise<void> {
@@ -434,6 +452,7 @@ export async function openDb(target: string) {
   await migrateAgentsTable(db);
   await migrateLeadMagnetsTable(db);
   await migrateFunnelContactsTable(db);
+  await migrateFunnelVentures(db);
   await migrateSkillsTable(db);
 
   const departments = {

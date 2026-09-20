@@ -8,7 +8,7 @@ const NOW = Date.parse('2026-07-27T12:00:00.000Z');
 const client = (id: string, name: string): RosterClient => ({
   id,
   name,
-  venture: 'vantage',
+  venture: 'dms-industrial',
   status: 'active',
   amountUsd: 1000,
   source: 'funnel',

@@ -228,7 +228,7 @@
   --funnel-s4: var(--ok);
   --funnel-s5: #575757;
   --funnel-s6: #474747;
-  /* Alex's call (2026-07-10): tools burn red on the monolith radial. */
+  /* Dave's call (2026-07-10): tools burn red on the monolith radial. */
   --kg-tool: #ff2d3f;
 }
 

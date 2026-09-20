@@ -8,7 +8,7 @@ function tmpVault(): string {
   const dir = mkdtempSync(path.join(tmpdir(), 'obsidian-vault-'));
   writeFileSync(path.join(dir, 'Welcome.md'), '# Welcome\nhello vault');
   mkdirSync(path.join(dir, 'Chat Archive'), { recursive: true });
-  writeFileSync(path.join(dir, 'Chat Archive', 'chat-one.md'), '# Chat one\nAlex asked about agents.');
+  writeFileSync(path.join(dir, 'Chat Archive', 'chat-one.md'), '# Chat one\nDave asked about agents.');
   mkdirSync(path.join(dir, '.obsidian'), { recursive: true });
   writeFileSync(path.join(dir, '.obsidian', 'config.md'), 'should be ignored');
   return dir;

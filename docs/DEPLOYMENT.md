@@ -48,8 +48,8 @@ matter what credentials you supply:
 
 **Everything else works on either host**, because it is a network API reading
 credentials from the environment: email/IMAP, Slack, Stripe, Notion, calendar,
-GHL, Attio, Beehiiv, ManyChat, Meta Ads, Trakyo, WebinarJam, Adsmith, Miro, and
-the LLM gateway.
+Odoo, GHL, Attio, Beehiiv, ManyChat, Meta Ads, Trakyo, WebinarJam, Adsmith,
+Miro, and the LLM gateway.
 
 So: video and local knowledge stay on the workstation, webhooks and scheduling
 live in the cloud, and the shared Postgres is what stops them from becoming two
@@ -106,7 +106,10 @@ is only worth knowing if you need to pin a builder explicitly.
    and seeded, production carries real credentials and real data.
 2. **Add a Postgres database** to the same project. Railway exposes
    `DATABASE_URL` — reference it from the app service so both move together.
-   Prefer the private-network URL; it stays inside the project and needs no TLS.
+   Use the **private** URL (`postgres.railway.internal`), not
+   `DATABASE_PUBLIC_URL`: private traffic stays inside the project, needs no
+   TLS, and is not billed. Pointing a Railway service at the public URL is the
+   single most common cause of a surprise egress bill.
 3. **Set the environment variables:**
 
    | Variable | Why |
@@ -156,6 +159,18 @@ REMOTION_PROJECT_DIR=/Users/you/Projects/remotion-pipeline
 WHISPER_BIN=/opt/homebrew/bin/whisper-cli
 FFMPEG_BIN=/opt/homebrew/bin/ffmpeg
 ```
+
+Here the **public** URL is unavoidable and correct. `postgres.railway.internal`
+only resolves inside Railway's network, so a machine outside it reaches the
+database through the TCP proxy or not at all. Railway warns about
+`DATABASE_PUBLIC_URL` because it bills egress at $0.05/GB — worth knowing, not
+worth worrying about at this scale: a fully seeded store is well under a
+megabyte, so it takes thousands of complete reads to reach five cents, and only
+reads count (writes back to Railway are ingress, which is free).
+
+Note also that `npm run worker` does **not** need `DATABASE_URL`. The worker
+talks to the cloud over HTTPS with its token and never opens a database
+connection, so the public URL is used only while the local UI is running.
 
 Then:
 

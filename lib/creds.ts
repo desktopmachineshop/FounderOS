@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Credential resolution for connectors. Alex's keys already live in
+ * Credential resolution for connectors. Dave's keys already live in
  * canonical locations around the machine (~/.config/social/.env,
  * knowledge/.env.agents, ~/.config/mcp.json, project .env files). Connectors
  * resolve from process.env first, then fall back to those files at runtime —

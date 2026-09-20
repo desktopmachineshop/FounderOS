@@ -158,7 +158,7 @@ export function BrainDump({ compact = false }: { compact?: boolean }) {
   };
 
   if (compact) {
-    // ONE untitled part (Alex): a wide, short capture bar tucked across the
+    // ONE untitled part (Dave): a wide, short capture bar tucked across the
     // top-right whitespace beside the title — type, talk, drop, or upload
     // documents into the brain. Horizontal, not tall: the graph owns the space
     // directly under the title.

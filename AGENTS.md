@@ -6,16 +6,16 @@ This file exists so non-Claude agents (Codex, etc.) get the same house rules.
 ## Non-negotiables
 
 - **Never commit or copy secrets.** Credentials live in `.env.local`
-  (gitignored) and Alex's canonical files; `lib/creds.ts` resolves them.
+  (gitignored) and Dave's canonical files; `lib/creds.ts` resolves them.
   Never copy keys from `~/knowledge/.env.agents` into the repo.
-- **Never push to any remote or touch `main` without Alex's explicit yes.**
+- **Never push to any remote or touch `main` without Dave's explicit yes.**
   Commit locally on `founder-os`, small checkpoints, often.
 - **Don't kill the dev server on 4100 or 4101** — other sessions use them.
   If your edit crashes the dev server's hot reload, fix it fast: a crash loop
   corrupts `.next` and breaks every session's page chunks (kill the port,
   `rm -rf .next`, restart).
 - `/org` markup is frozen — do not restructure it.
-- No em/en dashes in anything written for Alex.
+- No em/en dashes in anything written for Dave.
 
 ## How to work
 

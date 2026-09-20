@@ -129,7 +129,7 @@ describe.skipIf(!enabled)('SQLite ↔ Postgres parity on the real schema', () =>
     await postgres.funnel.insertContact({
       id: 'parity-contact',
       name: 'Parity',
-      venture: 'vantage',
+      venture: 'dms-industrial',
       status: 'first_touch',
       product: null,
       amountUsd: null,

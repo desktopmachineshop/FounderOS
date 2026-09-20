@@ -40,7 +40,7 @@ export interface LlmProvider {
 const GATEWAY_KEY = 'AI_GATEWAY_API_KEY';
 const DEFAULT_MODEL = process.env.LLM_MODEL ?? 'anthropic/claude-sonnet-5';
 
-/** process.env first (Next auto-loads .env.local), then Alex's cred files. */
+/** process.env first (Next auto-loads .env.local), then Dave's cred files. */
 function resolveGatewayKey(): string | undefined {
   return resolveCred(GATEWAY_KEY, [CRED_FILES.agentsEnv, CRED_FILES.socialMedia]);
 }
@@ -72,7 +72,7 @@ export function createGatewayProvider(model: string = DEFAULT_MODEL): LlmProvide
     name: 'gateway',
     async chat(req) {
       // Fail fast with an honest message instead of letting the SDK hang —
-      // and hydrate process.env from Alex's cred files so a key that
+      // and hydrate process.env from Dave's cred files so a key that
       // exists outside .env.local still works.
       const key = resolveGatewayKey();
       if (!key) {

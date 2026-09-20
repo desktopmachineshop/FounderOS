@@ -43,7 +43,7 @@ const GHL_VERSION = '2021-07-28';
 
 /**
  * Pipeline-position fraction → canonical hub for open opportunities. Stage
- * names win over position where the semantics are explicit (Alex's Main
+ * names win over position where the semantics are explicit (Dave's Main
  * Pipeline parks "Nurture 2 Weeks" stages late in the list).
  */
 function stageFor(fraction: number, stageName: string): FunnelStage {
@@ -122,7 +122,9 @@ export function mapGhlOpportunities(
         FunnelJourneySchema.parse({
           id,
           name: o.contact?.name || o.name || 'Unnamed opportunity',
-          venture: 'launchpad-cohort', // GHL is the LC machine
+          // GHL is not part of this stack yet; industrial is the closest
+          // home for an inbound opportunity until a real CRM lands.
+          venture: 'dms-industrial',
           status: canonical,
           product: won ? `GHL: ${stage.name}` : null,
           amountUsd: value > 0 ? value : won ? 0 : null,

@@ -15,11 +15,11 @@ export const COMMS_LANES: { id: CommsLane; label: string }[] = [
   { id: 'misc', label: 'Misc / Unknown' },
 ];
 
-// A personal-looking email inbox. Generic on purpose — never hardcode Alex's
+// A personal-looking email inbox. Generic on purpose — never hardcode Dave's
 // real brand inboxes (they must not leak into the FounderOS demo).
 const PERSONAL_INBOX_RE = /\b(personal|gmail|icloud|proton|outlook|private|me)\b/i;
 
-// Generic work signals shipped with the app. Alex's real work brands
+// Generic work signals shipped with the app. Dave's real work brands
 // (Vantage, Launchpad Cohort, specific people, …) live in COMMS_WORK_KEYWORDS
 // in .env.local, NOT here — the committed default must stay brand-free so it is
 // safe for the public FounderOS demo.

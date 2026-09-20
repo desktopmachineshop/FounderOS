@@ -18,6 +18,7 @@ import { webinarjamStatus } from '@/lib/connectors/webinarjam';
 import { trakyoStatus } from '@/lib/connectors/trakyo';
 import { metaAdsStatus } from '@/lib/connectors/meta-ads';
 import { ghlStatus } from '@/lib/connectors/ghl';
+import { odooStatus } from '@/lib/connectors/odoo';
 import { getBrainProvider } from '@/lib/brain';
 import { resolveManychatKey, runtimeEnv } from '@/lib/creds';
 import type { ConnectorStatus } from '@/lib/connectors/types';
@@ -44,13 +45,15 @@ const CHECKS: [string, ConnectorStatus['kind'], () => Promise<ConnectorStatus>][
     'manychat',
     'social',
     () => {
-      // Alex's real key rides in ~/.config/mcp.json (the manychat MCP
+      // Dave's real key rides in ~/.config/mcp.json (the manychat MCP
       // registration), same reuse pattern as Attio — .env.local still wins.
       const env = runtimeEnv();
       if (!env.MANYCHAT_API_KEY) env.MANYCHAT_API_KEY = resolveManychatKey();
       return manychatStatus(env);
     },
   ],
+  // One instance, three of the four businesses — see lib/connectors/odoo.ts.
+  ['odoo', 'commerce', () => odooStatus(runtimeEnv())],
   ['attio', 'crm', attioStatus],
   ['webinarjam', 'crm', webinarjamStatus],
   ['trakyo', 'crm', trakyoStatus],

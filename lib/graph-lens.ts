@@ -1,5 +1,5 @@
 /**
- * Lenses over the operating knowledge graph (Alex, 2026-07-12): slice the
+ * Lenses over the operating knowledge graph (Dave, 2026-07-12): slice the
  * same 114 nodes three ways — by ENTITY TYPE, by BUSINESS FUNCTION (core vs
  * enabling, plus his two venture teams), and by ACTION (what a thing is
  * actually used for). Picking a lens lights the matching nodes and dims the

@@ -28,7 +28,7 @@ const clampW = (w: number) => Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
 export function ConductorPanel() {
   const pathname = usePathname() ?? '/';
   const [open, setOpen] = useState(false);
-  // Alex controls the size: drag the left edge; the width persists
+  // Dave controls the size: drag the left edge; the width persists
   const [width, setWidth] = useState(380);
   useEffect(() => {
     try {

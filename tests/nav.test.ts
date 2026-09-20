@@ -46,7 +46,7 @@ describe('shared nav config', () => {
     }
   });
 
-  test('Funnel sits right after Comms and ahead of Social (Alex, 2026-07-02)', () => {
+  test('Funnel sits right after Comms and ahead of Social (Dave, 2026-07-02)', () => {
     const hrefs = NAV_OPERATE.map((n) => n.href);
     expect(hrefs.indexOf('/funnel')).toBe(hrefs.indexOf('/comms') + 1);
     // Social stays downstream of Funnel; a concurrent Workflows item may sit between them.
