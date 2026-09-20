@@ -130,7 +130,7 @@ export async function gatherCommsLanes(): Promise<{
     recentChats(40),
     whatsappStatus(),
   ]);
-  const tags = getDb().contactTags.all();
+  const tags = await (await getDb()).contactTags.all();
   const inboxes = inboxCfgs.map((c) => ({ id: c.id, name: c.name }));
   return {
     lanes: buildCommsLanes({ inboxes, emails, emailState, whatsapp, whatsappState, tags }),

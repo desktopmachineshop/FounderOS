@@ -350,15 +350,15 @@ describe('treeLayout — dept → task → worker → tools', () => {
 });
 
 // ── Not-claustrophobic guarantee: real seeded departments keep their space ───
-describe('treeLayout spacing on the real seeded org (largest departments)', () => {
-  const db: FounderDb = openDb(':memory:');
-  seedDatabase(db);
+describe('treeLayout spacing on the real seeded org (largest departments)', async () => {
+  const db: FounderDb = await openDb(':memory:');
+  await seedDatabase(db);
   afterAll(() => db.close());
 
-  const agents = db.agents.all();
-  const departments = db.departments.all();
-  const people = db.people.all();
-  const tasks = db.sopTasks.all();
+  const agents = await db.agents.all();
+  const departments = await db.departments.all();
+  const people = await db.people.all();
+  const tasks = await db.sopTasks.all();
   const graph = buildKnowledgeGraph(agents, departments, people, tasks);
 
   const MIN_GAP = 48;

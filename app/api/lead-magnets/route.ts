@@ -38,7 +38,7 @@ function slugify(name: string): string {
 }
 
 export async function GET() {
-  return NextResponse.json({ leadMagnets: getDb().leadMagnets.all() });
+  return NextResponse.json({ leadMagnets: await (await getDb()).leadMagnets.all() });
 }
 
 export async function POST(req: Request) {
@@ -47,10 +47,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const input = parsed.data;
-  const db = getDb();
+  const db = (await getDb());
 
   const base = slugify(input.name) || 'lead-magnet';
-  const taken = new Set(db.leadMagnets.all().map((m) => m.id));
+  const taken = new Set((await db.leadMagnets.all()).map((m) => m.id));
   let id = base;
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
 
@@ -60,6 +60,6 @@ export async function POST(req: Request) {
     launchedAt: input.launchedAt ?? new Date().toISOString().slice(0, 10),
     origin: 'os' as const,
   };
-  db.leadMagnets.insert(row);
+  await db.leadMagnets.insert(row);
   return NextResponse.json({ leadMagnet: row }, { status: 201 });
 }

@@ -38,10 +38,10 @@ describe('PERSONAS seed data', () => {
 });
 
 describe('personas repo', () => {
-  test('seedDatabase loads all eleven personas, ordered, round-tripped through the repo', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const rows = db.personas.all();
+  test('seedDatabase loads all eleven personas, ordered, round-tripped through the repo', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const rows = await db.personas.all();
     expect(rows).toHaveLength(11);
     expect(rows.map((p) => p.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     // JSON columns survive the round-trip

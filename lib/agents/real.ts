@@ -14,6 +14,7 @@ import { whatsappStatus } from '@/lib/connectors/whatsapp';
 import { wisprStatus } from '@/lib/connectors/wispr';
 import { localStackStatus } from '@/lib/connectors/local-stack';
 import { getDb } from '@/lib/data';
+import { describeMediaJob, type MediaJob, type MediaJobKind } from '@/lib/media-jobs';
 import type { LlmToolSpec } from '@/lib/connectors/llm';
 import type { AgentRunResult, RuntimeAgent } from '@/lib/agents/runtime';
 
@@ -111,6 +112,42 @@ async function processorConfirmationRun(): Promise<AgentRunResult> {
   };
 }
 
+
+/**
+ * The video lanes report the shared media queue, not the local stack.
+ *
+ * These two agents run on whichever host the operator is looking at, and the
+ * work itself happens on the workstation — so "is Remotion up on *this*
+ * machine" is the wrong question on the cloud instance, where it is
+ * permanently and uselessly red. The queue is the honest shared signal: both
+ * hosts see the same rows, and a job sitting unclaimed says something real
+ * (the workstation is asleep) rather than something local.
+ */
+async function mediaLaneRun(lane: string, kinds: MediaJobKind[]): Promise<AgentRunResult> {
+  const db = await getDb();
+  // Release claims from a workstation that went away, so the counts below are
+  // the true state and not a stale "in progress".
+  const reclaimed = await db.mediaJobs.requeueStale();
+  const mine = (await db.mediaJobs.list({ limit: 200 })).filter((j) => kinds.includes(j.spec.kind));
+
+  const by = (s: MediaJob['status']) => mine.filter((j) => j.status === s).length;
+  const queued = by('queued');
+  const claimed = by('claimed');
+  const failed = by('failed');
+  const lastDone = mine.find((j) => j.status === 'done');
+
+  const parts = [`${queued} queued`, `${claimed} running`, `${failed} failed`];
+  if (lastDone) parts.push(`last ${describeMediaJob(lastDone)}`);
+  if (reclaimed > 0) parts.push(`${reclaimed} reclaimed from a stopped worker`);
+
+  return {
+    // Nothing queued and nothing failed is a healthy idle lane, not a fault.
+    ok: failed === 0,
+    summary: `${lane} lane · ${parts.join(' · ')}`,
+    data: { queued, claimed, failed, kinds, workers: [...new Set(mine.map((j) => j.workerId).filter(Boolean))] },
+  };
+}
+
 export const realAgents: RuntimeAgent[] = [
   // ── Command ──────────────────────────────────────────────────────────
   {
@@ -157,7 +194,7 @@ export const realAgents: RuntimeAgent[] = [
     async run() {
       const [postly, adsmith] = await Promise.all([zernioRun(), arcadsRun()]);
       const live = [postly, adsmith].filter((r) => r.ok).length;
-      const queued = getDb().socialPosts.queued().length;
+      const queued = (await (await getDb()).socialPosts.queued()).length;
       const queueNote = queued > 0 ? `${queued} post${queued === 1 ? '' : 's'} queued for publish` : 'no posts queued';
       return {
         ok: live > 0,
@@ -173,28 +210,14 @@ export const realAgents: RuntimeAgent[] = [
     name: 'Reelkit Editor',
     description: 'Editing and rendering pipeline for social clips, captions, and promotional cuts.',
     departmentId: 'dept-marketing-growth',
-    async run() {
-      const stack = await localStackStatus();
-      return {
-        ok: stack.state === 'connected',
-        summary: `Reelkit/social editing lane mapped · local stack: ${stack.detail}`,
-        data: stack.meta,
-      };
-    },
+    run: () => mediaLaneRun('Reelkit editing', ['render', 'caption']),
   },
   {
     id: 'renderly-creative',
     name: 'Renderly Creative',
     description: 'Renderly creative generation for campaign visuals and product assets.',
     departmentId: 'dept-marketing-growth',
-    async run() {
-      const stack = await localStackStatus();
-      return {
-        ok: stack.state === 'connected',
-        summary: `Renderly creative lane mapped · local stack: ${stack.detail}`,
-        data: stack.meta,
-      };
-    },
+    run: () => mediaLaneRun('Renderly creative', ['render', 'thumbnail']),
   },
   {
     id: 'dmflow-mcp',
@@ -453,8 +476,8 @@ export const realAgents: RuntimeAgent[] = [
     description: 'The live client list: funnel journeys reconciled with Ledger, counted by venture and status.',
     departmentId: 'dept-clients',
     async run() {
-      const db = getDb();
-      const journeys = db.funnel.journeys();
+      const db = (await getDb());
+      const journeys = await db.funnel.journeys();
       const converted = journeys.filter((j) => j.status === 'converted');
       const live = await attioClients();
       const servingAttio = live.state === 'connected' && live.clients.length > 0;

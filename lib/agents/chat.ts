@@ -42,21 +42,21 @@ export async function chatWithAgent(
 
   const now = () => new Date().toISOString();
 
-  db.agentMessages.insert({ id: randomUUID(), agentId, role: 'user', content: message, toolCalls: [], createdAt: now() });
+  await db.agentMessages.insert({ id: randomUUID(), agentId, role: 'user', content: message, toolCalls: [], createdAt: now() });
 
   // Full rolling history. Prior `tool` turns are kept in the record for the
   // activity feed, but the gateway provider drops them before calling the model
   // (a bare {role:'tool'} string isn't a valid v6 tool-result part) — so on
   // follow-up turns the model sees the assistant's prose, not raw tool output.
   // Fine for v1 read-only chat; revisit if multi-turn tool reasoning is needed.
-  const history = db.agentMessages.byAgent(agentId);
+  const history = await db.agentMessages.byAgent(agentId);
   const llmMessages: LlmMessage[] = history.map((m) => ({ role: m.role, content: m.content }));
   const tools = agent.chatTools?.();
 
   const result = await llmChat({ system: systemPromptFor(agent, opts.screenContext), messages: llmMessages, tools });
 
   if (result.toolCalls.length) {
-    db.agentMessages.insert({
+    await db.agentMessages.insert({
       id: randomUUID(),
       agentId,
       role: 'tool',
@@ -66,7 +66,7 @@ export async function chatWithAgent(
     });
   }
 
-  db.agentMessages.insert({ id: randomUUID(), agentId, role: 'assistant', content: result.text, toolCalls: [], createdAt: now() });
+  await db.agentMessages.insert({ id: randomUUID(), agentId, role: 'assistant', content: result.text, toolCalls: [], createdAt: now() });
 
-  return { reply: result.text, messages: db.agentMessages.byAgent(agentId) };
+  return { reply: result.text, messages: await db.agentMessages.byAgent(agentId) };
 }

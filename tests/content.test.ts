@@ -7,10 +7,10 @@ let db: FounderDb;
 afterEach(() => db?.close());
 
 describe('contentAgents', () => {
-  test('returns the content-creation crew (Marketing/Growth pillar), lead first', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const crew = contentAgents(db.agents.all());
+  test('returns the content-creation crew (Marketing/Growth pillar), lead first', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const crew = contentAgents(await db.agents.all());
     expect(crew[0].id).toBe('social-agent');
     const ids = crew.map((a) => a.id);
     for (const id of ['social-agent', 'postly-publisher', 'adsmith-creative', 'reelkit-editor', 'renderly-creative', 'dmflow-mcp']) {
@@ -18,20 +18,20 @@ describe('contentAgents', () => {
     }
   });
 
-  test('only the content pillar — excludes other departments', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const crew = contentAgents(db.agents.all());
+  test('only the content pillar — excludes other departments', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const crew = contentAgents(await db.agents.all());
     expect(crew.every((a) => a.departmentId === 'dept-marketing-growth')).toBe(true);
     expect(crew.map((a) => a.id)).not.toContain('sales-agent');
     expect(crew.map((a) => a.id)).not.toContain('data-agent');
   });
 
-  test('deterministic + non-empty', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const a = contentAgents(db.agents.all()).map((x) => x.id);
-    const b = contentAgents(db.agents.all()).map((x) => x.id);
+  test('deterministic + non-empty', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const a = contentAgents(await db.agents.all()).map((x) => x.id);
+    const b = contentAgents(await db.agents.all()).map((x) => x.id);
     expect(a).toEqual(b);
     expect(a.length).toBeGreaterThanOrEqual(5);
   });

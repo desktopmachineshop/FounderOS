@@ -13,11 +13,11 @@ const STATUS_BADGE: Record<RoadmapStatus, { tone: BadgeTone; ghost: boolean; lab
   later: { tone: 'default', ghost: true, label: 'Later' },
 };
 
-export default function RoadmapPage() {
-  const db = getDb();
-  const quarters = groupRoadmapByQuarter(db.roadmap.all());
-  const phases = db.phases.all();
-  const departments = new Map(db.departments.all().map((d) => [d.id, d]));
+export default async function RoadmapPage() {
+  const db = (await getDb());
+  const quarters = groupRoadmapByQuarter(await db.roadmap.all());
+  const phases = await db.phases.all();
+  const departments = new Map((await db.departments.all()).map((d) => [d.id, d]));
 
   return (
     <div>

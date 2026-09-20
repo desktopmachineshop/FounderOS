@@ -90,7 +90,7 @@ export function buildBrainDocs(input: DocsInput): BrainDoc[] {
         (subs.length ? `- Sub-agents: ${subs.map(link).join(' ')}\n` : '') +
         (lead ? `- Human lead: ${link(lead.id)}\n` : '') +
         `\n## Tools\n\n` +
-        (a.tools.length ? a.tools.map((s) => `- ${link(s)}`).join('\n') + '\n' : 'No tools wired.\n'),
+        (a.tools.length ? (a.tools.map((s) => `- ${link(s)}`)).join('\n') + '\n' : 'No tools wired.\n'),
     });
   }
 
@@ -137,7 +137,7 @@ export function buildBrainDocs(input: DocsInput): BrainDoc[] {
         `## Their job\n\n` +
         (task ? `${link(task.id)} — ${task.title}.\n` : 'No SOP assigned yet.\n') +
         `\n## Works with\n\n` +
-        (p.tools.length ? p.tools.map((s) => `- ${link(s)}`).join('\n') + '\n' : 'No tools wired.\n'),
+        (p.tools.length ? (p.tools.map((s) => `- ${link(s)}`)).join('\n') + '\n' : 'No tools wired.\n'),
     });
   }
 

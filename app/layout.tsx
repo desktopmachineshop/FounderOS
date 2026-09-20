@@ -9,6 +9,7 @@ import { CohortBanner } from '@/components/CohortBanner';
 import { CohortModal } from '@/components/CohortModal';
 import { getDb } from '@/lib/data';
 import type { Command } from '@/lib/palette';
+import { buildPaletteCommands } from '@/lib/palette-commands';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 
 const fontMono = JetBrains_Mono({
@@ -41,26 +42,9 @@ const NAV_COMMANDS: Command[] = [
   { id: 'ext-fathom', label: 'Fathom Calls', keywords: 'meetings recordings notes', href: 'https://fathom.video', hint: 'web' },
 ];
 
-function buildCommands(): Command[] {
-  const db = getDb();
-  const tools: Command[] = db.tools.all().map((t) => ({
-    id: `tool-${t.id}`,
-    label: t.name,
-    keywords: `${t.category} ${t.description}`,
-    href: '/integrations',
-    hint: 'tool',
-  }));
-  const agents: Command[] = db.agents.all().map((a) => ({
-    id: `agent-${a.id}`,
-    label: a.name,
-    keywords: `${a.role} ${a.description}`,
-    href: '/agents',
-    hint: 'agent',
-  }));
-  return [...NAV_COMMANDS, ...agents, ...tools];
-}
+const buildCommands = (): Promise<Command[]> => buildPaletteCommands(NAV_COMMANDS, getDb);
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={fontMono.variable} suppressHydrationWarning>
       <head>
@@ -83,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </main>
         </div>
-        <CommandPalette commands={buildCommands()} />
+        <CommandPalette commands={await buildCommands()} />
         {/* Notion-style agent dock — the Conductor, aware of the current screen */}
         <ConductorPanel />
         {/* First-run welcome on the home screen — once per browser */}

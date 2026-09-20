@@ -4,8 +4,8 @@ import { createRuntime, type RuntimeAgent } from '@/lib/agents/runtime';
 
 let db: FounderDb;
 
-afterEach(() => {
-  db?.close();
+afterEach(async () => {
+  await db?.close();
 });
 
 const okAgent: RuntimeAgent = {
@@ -29,45 +29,45 @@ const failAgent: RuntimeAgent = {
 };
 
 describe('agent runtime', () => {
-  test('lists registered agents', () => {
-    db = openDb(':memory:');
+  test('lists registered agents', async () => {
+    db = await openDb(':memory:');
     const runtime = createRuntime(db, [okAgent, failAgent]);
     expect(runtime.list().map((a) => a.id)).toEqual(['test-ok', 'test-fail']);
   });
 
   test('runs an agent and persists the run with its summary', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const runtime = createRuntime(db, [okAgent]);
     const run = await runtime.run('test-ok');
     expect(run.ok).toBe(true);
     expect(run.summary).toBe('did the thing');
-    const stored = db.agentRuns.byAgent('test-ok');
+    const stored = await db.agentRuns.byAgent('test-ok');
     expect(stored).toHaveLength(1);
     expect(stored[0].ok).toBe(true);
     expect(stored[0].finishedAt >= stored[0].startedAt).toBe(true);
   });
 
   test('captures a throwing agent as a failed run instead of crashing', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const runtime = createRuntime(db, [failAgent]);
     const run = await runtime.run('test-fail');
     expect(run.ok).toBe(false);
     expect(run.summary).toContain('connector exploded');
-    expect(db.agentRuns.byAgent('test-fail')).toHaveLength(1);
+    expect(await db.agentRuns.byAgent('test-fail')).toHaveLength(1);
   });
 
   test('throws on an unknown agent id', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const runtime = createRuntime(db, [okAgent]);
     await expect(runtime.run('nope')).rejects.toThrow(/unknown agent/i);
   });
 
   test('agentRuns.recent returns newest first across agents', async () => {
-    db = openDb(':memory:');
+    db = await openDb(':memory:');
     const runtime = createRuntime(db, [okAgent, failAgent]);
     await runtime.run('test-ok');
     await runtime.run('test-fail');
-    const recent = db.agentRuns.recent(10);
+    const recent = await db.agentRuns.recent(10);
     expect(recent).toHaveLength(2);
     expect(recent[0].agentId).toBe('test-fail');
   });

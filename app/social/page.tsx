@@ -83,15 +83,15 @@ function agoFrom(iso: string | null): string {
 }
 
 export default async function SocialPage() {
-  const db = getDb();
+  const db = (await getDb());
   // Live follower-count sync from Zernio/Late (falls back to static config when
   // the API is unreachable). This makes every figure on the page real-time.
   await syncFromZernioLive(db);
   // Live Beehiiv subscriber count (no-op without a key → seeded fallback).
   await syncBeehiivEmail(db);
-  const dash = buildSocialDashboard(db);
-  const email = buildEmailList(db);
-  const posts = db.socialPosts.all();
+  const dash = await buildSocialDashboard(db);
+  const email = await buildEmailList(db);
+  const posts = await db.socialPosts.all();
 
   // Real published posts straight from Zernio/Late. Engagement (likes/views) is
   // behind Late's paid analytics add-on, so live posts show the post link in its
@@ -100,14 +100,14 @@ export default async function SocialPage() {
   const livePosts = await zernioRecentPosts(5);
   const recentLive = livePosts.length > 0;
 
-  const total = audienceTotal(db);
+  const total = await audienceTotal(db);
   const queued = posts.filter((p) => p.status === 'queued').length;
-  const dmInbox = dmThreads(db); // Instagram DM inbox (seeded → live via ManyChat webhook)
+  const dmInbox = await dmThreads(db); // Instagram DM inbox (seeded → live via ManyChat webhook)
 
   // Combined-audience series + REAL per-platform posting history (from Zernio/
   // Late) for the interactive left-column charts. `today` is computed server-side
   // and passed down so the chart's date axis can't drift between server/client.
-  const audiencePoints = audienceSeries(db).all.points;
+  const audiencePoints = (await audienceSeries(db)).all.points;
   const postDays = await zernioPostDays();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -121,7 +121,7 @@ export default async function SocialPage() {
 
       {/* Every account on the first screen — compact row, one cell per channel.
           Click through for the platform detail. */}
-      <SectionHead label="Accounts" count={`${formatFollowers(total)} total`} />
+      <SectionHead label="Accounts" count={`${formatFollowers((await total))} total`} />
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         {dash.platforms.map((p) => {
           const Icon = PLATFORM_ICONS[p.platform];
@@ -194,9 +194,9 @@ export default async function SocialPage() {
           The old "Top platform" tile was retired as a dead metric. */}
       <SocialStatStrip
         audienceTotal={total}
-        audienceGrowth={audienceGrowth(db)}
-        totalDms={totalDms(db)}
-        dmGrowth={dmGrowth(db)}
+        audienceGrowth={await audienceGrowth(db)}
+        totalDms={await totalDms(db)}
+        dmGrowth={await dmGrowth(db)}
         platformsCount={dash.platforms.length}
         dmThreads={dmInbox}
         nowMs={Date.now()}

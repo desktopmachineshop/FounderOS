@@ -29,10 +29,10 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ ok: false, error: result.detail }, { status: 502 });
   }
 
-  const db = getDb();
+  const db = (await getDb());
   // Carry the display name/handle from the existing thread so the stored
   // outbound message renders consistently.
-  const prior = db.social.dmMessages('instagram').find((m) => m.subscriberId === subscriberId);
+  const prior = (await db.social.dmMessages('instagram')).find((m) => m.subscriberId === subscriberId);
   const ts = new Date().toISOString();
   const message: SocialDmMessage = {
     id: `mc-out-${subscriberId}-${ts}`,
@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     ts,
     source: 'manychat',
   };
-  db.social.upsertDmMessage(message);
+  await db.social.upsertDmMessage(message);
 
   return NextResponse.json({ ok: true, message });
 }

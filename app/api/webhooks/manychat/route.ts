@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'payload missing a subscriber id' }, { status: 400 });
   }
 
-  getDb().social.upsertDmMessage(message);
+  await (await getDb()).social.upsertDmMessage(message);
   return NextResponse.json({ ok: true, id: message.id, subscriberId: message.subscriberId });
 }
 
@@ -37,6 +37,6 @@ export async function GET(): Promise<Response> {
     ok: true,
     endpoint: 'manychat-webhook',
     secured: Boolean(secret),
-    stored: getDb().social.dmMessages('instagram').length,
+    stored: (await (await getDb()).social.dmMessages('instagram')).length,
   });
 }

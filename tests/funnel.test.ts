@@ -23,8 +23,8 @@ import {
 
 let db: FounderDb;
 
-afterEach(() => {
-  db?.close();
+afterEach(async () => {
+  await db?.close();
 });
 
 const contact = (over: Partial<FunnelContact> = {}): FunnelContact => ({
@@ -60,25 +60,25 @@ const touch = (over: Partial<FunnelTouch> = {}): FunnelTouch => ({
 });
 
 describe('funnel repo', () => {
-  test('empty database has no journeys', () => {
-    db = openDb(':memory:');
-    expect(db.funnel.journeys()).toEqual([]);
+  test('empty database has no journeys', async () => {
+    db = await openDb(':memory:');
+    expect(await db.funnel.journeys()).toEqual([]);
   });
 
-  test('round-trips a contact with touches ordered by seq', () => {
-    db = openDb(':memory:');
-    db.funnel.insertContact(contact());
-    db.funnel.insertTouch(touch({ id: 'ft-2', seq: 2, stage: 'engaged', channel: 'dm', label: 'DM reply' }));
-    db.funnel.insertTouch(touch({ id: 'ft-1', seq: 1 }));
-    const journeys = db.funnel.journeys();
+  test('round-trips a contact with touches ordered by seq', async () => {
+    db = await openDb(':memory:');
+    await db.funnel.insertContact(contact());
+    await db.funnel.insertTouch(touch({ id: 'ft-2', seq: 2, stage: 'engaged', channel: 'dm', label: 'DM reply' }));
+    await db.funnel.insertTouch(touch({ id: 'ft-1', seq: 1 }));
+    const journeys = await db.funnel.journeys();
     expect(journeys).toHaveLength(1);
     expect(journeys[0].touches.map((t) => t.seq)).toEqual([1, 2]);
     expect(FunnelJourneySchema.parse(journeys[0]).name).toBe('Test Client');
   });
 
-  test('round-trips the dossier identity fields (AC52)', () => {
-    db = openDb(':memory:');
-    db.funnel.insertContact(
+  test('round-trips the dossier identity fields (AC52)', async () => {
+    db = await openDb(':memory:');
+    await db.funnel.insertContact(
       contact({
         person: 'Grace Lin',
         company: 'Lin & Co Accounting',
@@ -86,29 +86,29 @@ describe('funnel repo', () => {
         linkedin: 'https://linkedin.com/in/gracelin-example',
       }),
     );
-    db.funnel.insertTouch(touch());
-    const [j] = db.funnel.journeys();
+    await db.funnel.insertTouch(touch());
+    const [j] = await db.funnel.journeys();
     expect(j.person).toBe('Grace Lin');
     expect(j.company).toBe('Lin & Co Accounting');
     expect(j.role).toBe('Managing Partner');
     expect(j.linkedin).toBe('https://linkedin.com/in/gracelin-example');
   });
 
-  test('venture filter narrows journeys', () => {
-    db = openDb(':memory:');
-    db.funnel.insertContact(contact({ id: 'fc-m', venture: 'vantage' }));
-    db.funnel.insertContact(contact({ id: 'fc-aa', venture: 'launchpad-cohort' }));
-    expect(db.funnel.journeys('vantage').map((j) => j.id)).toEqual(['fc-m']);
-    expect(db.funnel.journeys('launchpad-cohort').map((j) => j.id)).toEqual(['fc-aa']);
-    expect(db.funnel.journeys()).toHaveLength(2);
+  test('venture filter narrows journeys', async () => {
+    db = await openDb(':memory:');
+    await db.funnel.insertContact(contact({ id: 'fc-m', venture: 'vantage' }));
+    await db.funnel.insertContact(contact({ id: 'fc-aa', venture: 'launchpad-cohort' }));
+    expect((await db.funnel.journeys('vantage')).map((j) => j.id)).toEqual(['fc-m']);
+    expect((await db.funnel.journeys('launchpad-cohort')).map((j) => j.id)).toEqual(['fc-aa']);
+    expect(await db.funnel.journeys()).toHaveLength(2);
   });
 });
 
 describe('funnel seed', () => {
-  test('seeds 4–5 touch journeys for both ventures, converted rows carry product + amount', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const all = db.funnel.journeys();
+  test('seeds 4–5 touch journeys for both ventures, converted rows carry product + amount', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const all = await db.funnel.journeys();
     expect(all.length).toBeGreaterThanOrEqual(10);
 
     for (const j of all) {
@@ -167,8 +167,8 @@ describe('funnel seed', () => {
     expect(freshest).toBeLessThanOrEqual(3);
 
     // re-seeding is idempotent
-    seedDatabase(db);
-    expect(db.funnel.journeys()).toHaveLength(all.length);
+    await seedDatabase(db);
+    expect(await db.funnel.journeys()).toHaveLength(all.length);
   });
 });
 

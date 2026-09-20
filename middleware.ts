@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { challengePage, gateDecision, GATE_COOKIE } from '@/lib/access-gate';
+import { challengePage, gateDecision, GATE_COOKIE, isHealthRoute } from '@/lib/access-gate';
+import { bearerToken, isWorkerRoute, workerAuth } from '@/lib/worker-auth';
 
 /**
  * Whole-app access gate. Active only when FOUNDER_OS_ACCESS_TOKEN is set
@@ -7,6 +8,24 @@ import { challengePage, gateDecision, GATE_COOKIE } from '@/lib/access-gate';
  * completely open. See lib/access-gate.ts for the decision logic + tests.
  */
 export function middleware(req: NextRequest) {
+  // The platform's health check carries no cookie; gating it would make every
+  // deploy look dead. It exposes nothing but liveness.
+  if (isHealthRoute(req.nextUrl.pathname)) return NextResponse.next();
+
+  // The workstation worker is not a browser: it carries a bearer token, not a
+  // cookie, so the gate would hand it an HTML challenge page. Let a correctly
+  // signed worker request through to its route, which checks the same token
+  // again before doing anything.
+  if (
+    isWorkerRoute(req.nextUrl.pathname) &&
+    workerAuth({
+      configured: process.env.FOUNDER_OS_WORKER_TOKEN,
+      presented: bearerToken(req.headers.get('authorization')),
+    }) === 'ok'
+  ) {
+    return NextResponse.next();
+  }
+
   const decision = gateDecision({
     token: process.env.FOUNDER_OS_ACCESS_TOKEN,
     cookie: req.cookies.get(GATE_COOKIE)?.value ?? null,

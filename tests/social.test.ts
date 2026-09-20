@@ -12,8 +12,8 @@ import {
 
 let db: FounderDb;
 
-afterEach(() => {
-  db?.close();
+afterEach(async () => {
+  await db?.close();
 });
 
 const snap = (platform: string, capturedAt: string, followers: number): SocialSnapshot =>
@@ -36,47 +36,47 @@ describe('social schemas', () => {
 });
 
 describe('social repo', () => {
-  test('round-trips accounts ordered by their order column', () => {
-    db = openDb(':memory:');
-    db.social.upsertAccount({ platform: 'tiktok', handle: '@founderos.ai', url: null, order: 2 });
-    db.social.upsertAccount({ platform: 'instagram', handle: '@founderos.ai', url: null, order: 1 });
-    expect(db.social.accounts().map((a) => a.platform)).toEqual(['instagram', 'tiktok']);
+  test('round-trips accounts ordered by their order column', async () => {
+    db = await openDb(':memory:');
+    await db.social.upsertAccount({ platform: 'tiktok', handle: '@founderos.ai', url: null, order: 2 });
+    await db.social.upsertAccount({ platform: 'instagram', handle: '@founderos.ai', url: null, order: 1 });
+    expect((await db.social.accounts()).map((a) => a.platform)).toEqual(['instagram', 'tiktok']);
   });
 
-  test('upserting the same platform replaces instead of duplicating', () => {
-    db = openDb(':memory:');
-    db.social.upsertAccount({ platform: 'twitter', handle: '@old', url: null, order: 1 });
-    db.social.upsertAccount({ platform: 'twitter', handle: '@Founderosai', url: null, order: 1 });
-    expect(db.social.accounts()).toHaveLength(1);
-    expect(db.social.accounts()[0].handle).toBe('@Founderosai');
+  test('upserting the same platform replaces instead of duplicating', async () => {
+    db = await openDb(':memory:');
+    await db.social.upsertAccount({ platform: 'twitter', handle: '@old', url: null, order: 1 });
+    await db.social.upsertAccount({ platform: 'twitter', handle: '@Founderosai', url: null, order: 1 });
+    expect(await db.social.accounts()).toHaveLength(1);
+    expect((await db.social.accounts())[0].handle).toBe('@Founderosai');
   });
 
-  test('returns snapshots for a platform in chronological order', () => {
-    db = openDb(':memory:');
-    db.social.insertSnapshot(snap('instagram', '2026-06-10', 40000));
-    db.social.insertSnapshot(snap('instagram', '2026-06-01', 39000));
-    db.social.insertSnapshot(snap('tiktok', '2026-06-10', 9900));
-    expect(db.social.snapshots('instagram').map((s) => s.capturedAt)).toEqual([
+  test('returns snapshots for a platform in chronological order', async () => {
+    db = await openDb(':memory:');
+    await db.social.insertSnapshot(snap('instagram', '2026-06-10', 40000));
+    await db.social.insertSnapshot(snap('instagram', '2026-06-01', 39000));
+    await db.social.insertSnapshot(snap('tiktok', '2026-06-10', 9900));
+    expect((await db.social.snapshots('instagram')).map((s) => s.capturedAt)).toEqual([
       '2026-06-01',
       '2026-06-10',
     ]);
   });
 
-  test('same-day snapshot for a platform replaces the earlier capture', () => {
-    db = openDb(':memory:');
-    db.social.insertSnapshot(snap('instagram', '2026-06-13', 40000));
-    db.social.insertSnapshot(snap('instagram', '2026-06-13', 40100));
-    const rows = db.social.snapshots('instagram');
+  test('same-day snapshot for a platform replaces the earlier capture', async () => {
+    db = await openDb(':memory:');
+    await db.social.insertSnapshot(snap('instagram', '2026-06-13', 40000));
+    await db.social.insertSnapshot(snap('instagram', '2026-06-13', 40100));
+    const rows = await db.social.snapshots('instagram');
     expect(rows).toHaveLength(1);
     expect(rows[0].followers).toBe(40100);
   });
 
-  test('latest() returns the newest snapshot per platform', () => {
-    db = openDb(':memory:');
-    db.social.insertSnapshot(snap('instagram', '2026-06-01', 39000));
-    db.social.insertSnapshot(snap('instagram', '2026-06-10', 40000));
-    db.social.insertSnapshot(snap('tiktok', '2026-06-05', 9900));
-    const latest = db.social.latest();
+  test('latest() returns the newest snapshot per platform', async () => {
+    db = await openDb(':memory:');
+    await db.social.insertSnapshot(snap('instagram', '2026-06-01', 39000));
+    await db.social.insertSnapshot(snap('instagram', '2026-06-10', 40000));
+    await db.social.insertSnapshot(snap('tiktok', '2026-06-05', 9900));
+    const latest = await db.social.latest();
     expect(latest).toHaveLength(2);
     expect(latest.find((s) => s.platform === 'instagram')?.followers).toBe(40000);
   });
@@ -118,8 +118,8 @@ describe('growthPct', () => {
 });
 
 describe('syncSocialSnapshots', () => {
-  test('records a snapshot today for every tracked platform with a follower count', () => {
-    db = openDb(':memory:');
+  test('records a snapshot today for every tracked platform with a follower count', async () => {
+    db = await openDb(':memory:');
     const recorded = syncSocialSnapshots(
       db,
       {
@@ -130,51 +130,51 @@ describe('syncSocialSnapshots', () => {
       },
       '2026-06-13',
     );
-    expect(recorded).toBe(2);
-    expect(db.social.snapshots('instagram')).toEqual([
+    expect(await recorded).toBe(2);
+    expect(await db.social.snapshots('instagram')).toEqual([
       { platform: 'instagram', capturedAt: '2026-06-13', followers: 42000, source: 'zernio-config' },
     ]);
-    expect(db.social.snapshots('linkedin')).toEqual([]);
+    expect(await db.social.snapshots('linkedin')).toEqual([]);
   });
 
-  test('re-syncing the same day overwrites rather than duplicates', () => {
-    db = openDb(':memory:');
-    syncSocialSnapshots(db, { instagram: { followers: 42000 } }, '2026-06-13');
-    syncSocialSnapshots(db, { instagram: { followers: 40100 } }, '2026-06-13');
-    const rows = db.social.snapshots('instagram');
+  test('re-syncing the same day overwrites rather than duplicates', async () => {
+    db = await openDb(':memory:');
+    await syncSocialSnapshots(db, { instagram: { followers: 42000 } }, '2026-06-13');
+    await syncSocialSnapshots(db, { instagram: { followers: 40100 } }, '2026-06-13');
+    const rows = await db.social.snapshots('instagram');
     expect(rows).toHaveLength(1);
     expect(rows[0].followers).toBe(40100);
   });
 });
 
 describe('buildSocialDashboard', () => {
-  test('lists the five platforms in account order with latest followers', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
+  test('lists the five platforms in account order with latest followers', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
     const dash = buildSocialDashboard(db);
-    expect(dash.platforms.map((p) => p.platform)).toEqual([
+    expect((await dash).platforms.map((p) => p.platform)).toEqual([
       'instagram',
       'tiktok',
       'twitter',
       'youtube',
       'linkedin',
     ]);
-    expect(dash.platforms[0].followers).toBe(42000);
+    expect((await dash).platforms[0].followers).toBe(42000);
     // Every platform now carries ~90d of seeded dummy history (incl. LinkedIn)
     // so each one charts and computes growth over every window.
-    expect(dash.platforms[4].followers).toBe(1500);
+    expect((await dash).platforms[4].followers).toBe(1500);
   });
 
-  test('sums total followers across latest snapshots', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    expect(buildSocialDashboard(db).totalFollowers).toBe(42000 + 12000 + 5200 + 900 + 1500);
+  test('sums total followers across latest snapshots', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    expect((await buildSocialDashboard(db)).totalFollowers).toBe(42000 + 12000 + 5200 + 900 + 1500);
   });
 
-  test('computes growth from snapshot history per platform', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const ig = buildSocialDashboard(db).platforms.find((p) => p.platform === 'instagram');
+  test('computes growth from snapshot history per platform', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const ig = (await buildSocialDashboard(db)).platforms.find((p) => p.platform === 'instagram');
     // seeded ~90d history → latest is the seeded 42,000 and every window computes
     expect(ig?.followers).toBe(42000);
     expect(typeof ig?.growth.d7).toBe('number');
@@ -186,50 +186,50 @@ describe('buildSocialDashboard', () => {
 });
 
 describe('platformDetail', () => {
-  test('returns account, history, and growth for one platform', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
+  test('returns account, history, and growth for one platform', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
     const detail = platformDetail(db, 'instagram');
-    expect(detail?.account.handle).toBe('@founderos.ai');
-    expect(detail?.snapshots.length).toBeGreaterThanOrEqual(1);
-    expect(detail?.growth).toHaveProperty('d7');
-    expect(detail?.growth).toHaveProperty('d30');
-    expect(detail?.growth).toHaveProperty('allTime');
+    expect((await detail)?.account.handle).toBe('@founderos.ai');
+    expect((await detail)?.snapshots.length).toBeGreaterThanOrEqual(1);
+    expect((await detail)?.growth).toHaveProperty('d7');
+    expect((await detail)?.growth).toHaveProperty('d30');
+    expect((await detail)?.growth).toHaveProperty('allTime');
   });
 
-  test('is null for a platform that is not tracked', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    expect(platformDetail(db, 'myspace' as never)).toBeNull();
+  test('is null for a platform that is not tracked', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    expect(await platformDetail(db, 'myspace' as never)).toBeNull();
   });
 });
 
 describe('seeded social data', () => {
-  test('seeds the five accounts with real handles', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const byPlatform = new Map(db.social.accounts().map((a) => [a.platform, a]));
+  test('seeds the five accounts with real handles', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const byPlatform = new Map((await db.social.accounts()).map((a) => [a.platform, a]));
     expect(byPlatform.get('instagram')?.handle).toBe('@founderos.ai');
     expect(byPlatform.get('twitter')?.handle).toBe('@Founderosai');
     expect(byPlatform.get('linkedin')?.handle).toBe('Alex Rivera');
   });
 
-  test('seeds multi-month history ending at the seeded current value', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    expect(db.social.snapshots('youtube').at(-1)?.followers).toBe(900);
+  test('seeds multi-month history ending at the seeded current value', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    expect((await db.social.snapshots('youtube')).at(-1)?.followers).toBe(900);
     // LinkedIn is fully dummy (no Zernio count) but still gets a history series
-    expect(db.social.snapshots('linkedin').length).toBeGreaterThan(3);
-    expect(db.social.snapshots('linkedin').at(-1)?.followers).toBe(1500);
+    expect((await db.social.snapshots('linkedin')).length).toBeGreaterThan(3);
+    expect((await db.social.snapshots('linkedin')).at(-1)?.followers).toBe(1500);
   });
 
-  test('re-seeding does not duplicate accounts or snapshots', () => {
-    db = openDb(':memory:');
-    seedDatabase(db);
-    const accounts = db.social.accounts().length;
-    const igSnaps = db.social.snapshots('instagram').length;
-    seedDatabase(db);
-    expect(db.social.accounts().length).toBe(accounts);
-    expect(db.social.snapshots('instagram').length).toBe(igSnaps);
+  test('re-seeding does not duplicate accounts or snapshots', async () => {
+    db = await openDb(':memory:');
+    await seedDatabase(db);
+    const accounts = (await db.social.accounts()).length;
+    const igSnaps = (await db.social.snapshots('instagram')).length;
+    await seedDatabase(db);
+    expect((await db.social.accounts()).length).toBe(accounts);
+    expect((await db.social.snapshots('instagram')).length).toBe(igSnaps);
   });
 });

@@ -15,8 +15,8 @@ export type EmailListSummary = {
  * trailing series — same shape as a social platform so the Social tab renders
  * it alongside the others. Seeded dummy now; Beehiiv-ready later.
  */
-export function buildEmailList(db: FounderDb): EmailListSummary {
-  const snapshots = db.emailList.snapshots();
+export async function buildEmailList(db: FounderDb): Promise<EmailListSummary> {
+  const snapshots = await db.emailList.snapshots();
   const points: GrowthPoint[] = snapshots.map((s) => ({ capturedAt: s.capturedAt, value: s.subscribers }));
   const latest = snapshots.at(-1) ?? null;
   return {
@@ -51,7 +51,7 @@ export async function syncBeehiivEmail(
     subscribers = null;
   }
   if (subscribers == null || !Number.isFinite(subscribers)) return false;
-  db.emailList.insertSnapshot(
+  await db.emailList.insertSnapshot(
     EmailListSnapshotSchema.parse({ capturedAt: today, subscribers, source: 'beehiiv' }),
   );
   return true;

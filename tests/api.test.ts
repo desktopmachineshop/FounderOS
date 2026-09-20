@@ -29,7 +29,7 @@ describe('API route handlers', () => {
     const res = await GET();
     const body = await res.json();
     expect(body.departments.length).toBeGreaterThanOrEqual(4);
-    const orders = body.departments.map((d: { order: number }) => d.order);
+    const orders = await body.departments.map((d: { order: number }) => d.order);
     expect([...orders].sort((a: number, b: number) => a - b)).toEqual(orders);
   });
 

@@ -18,11 +18,11 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request) {
   const metric = new URL(request.url).searchParams.get('metric');
-  const db = getDb();
-  syncFromZernioConfig(db);
+  const db = (await getDb());
+  await syncFromZernioConfig(db);
 
   if (metric === 'audience') {
-    const { channels, all } = audienceSeries(db);
+    const { channels, all } = await audienceSeries(db);
     return NextResponse.json({ metric, ranges: GROWTH_RANGES, series: [all, ...channels] });
   }
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       metric,
       ranges: GROWTH_RANGES,
-      series: [{ key: 'total', label: 'Total DMs', color: DM_COLOR, points: dmSeries(db) }],
+      series: [{ key: 'total', label: 'Total DMs', color: DM_COLOR, points: await dmSeries(db) }],
     });
   }
 

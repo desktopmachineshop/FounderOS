@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   const isLive = liveJourneys.length > 0;
   const all = isLive
     ? mergeTrakyoTouches(liveJourneys, await trakyoTouches()).filter((j) => !venture || j.venture === venture)
-    : getDb().funnel.journeys(venture);
+    : await (await getDb()).funnel.journeys(venture);
   const { active, archived } = splitFunnelJourneys(all, now);
   return NextResponse.json({
     summary: funnelSummary(active),

@@ -51,7 +51,7 @@ export function createRuntime(db: FounderDb, agents: RuntimeAgent[]) {
         ok: result.ok,
         summary: result.summary,
       };
-      db.agentRuns.insert(run);
+      await db.agentRuns.insert(run);
       return run;
     },
 
@@ -59,7 +59,7 @@ export function createRuntime(db: FounderDb, agents: RuntimeAgent[]) {
     async broadcast(message: string): Promise<Broadcast> {
       const broadcastId = randomUUID();
       const createdAt = new Date().toISOString();
-      db.broadcasts.insert({ id: broadcastId, message, createdAt });
+      await db.broadcasts.insert({ id: broadcastId, message, createdAt });
 
       const replies = await Promise.all(
         [...registry.values()].map(async (agent) => {
@@ -77,7 +77,7 @@ export function createRuntime(db: FounderDb, agents: RuntimeAgent[]) {
             reply: result.summary,
             finishedAt: new Date().toISOString(),
           };
-          db.broadcasts.insertReply(reply);
+          await db.broadcasts.insertReply(reply);
           return reply;
         }),
       );

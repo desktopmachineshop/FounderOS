@@ -14,17 +14,17 @@ import { buildEmailList } from '@/lib/email-list';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const db = getDb();
+  const db = (await getDb());
   // Every read captures today's follower counts from the Zernio config, so
   // growth history accrues for real just by using the dashboard.
-  syncFromZernioConfig(db);
+  await syncFromZernioConfig(db);
   return NextResponse.json({
-    ...buildSocialDashboard(db),
-    emailList: buildEmailList(db),
-    totalDms: totalDms(db),
-    audienceTotal: audienceTotal(db),
-    audienceGrowth: audienceGrowth(db), // { d7, d30, d60, allTime }
-    dmGrowth: dmGrowth(db), // { d7, d30, d60, allTime }
-    monthlyGrowthPct: monthlyAudienceGrowthPct(db), // back-compat
+    ...(await buildSocialDashboard(db)),
+    emailList: await buildEmailList(db),
+    totalDms: await totalDms(db),
+    audienceTotal: await audienceTotal(db),
+    audienceGrowth: await audienceGrowth(db), // { d7, d30, d60, allTime }
+    dmGrowth: await dmGrowth(db), // { d7, d30, d60, allTime }
+    monthlyGrowthPct: await monthlyAudienceGrowthPct(db), // back-compat
   });
 }
