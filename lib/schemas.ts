@@ -511,6 +511,35 @@ export const OdooWebsiteSchema = z.object({
   venture: z.string().nullable(),
 });
 
+/**
+ * A sale order. `venture` is null when the order cannot be attributed to a
+ * website we recognise (a back-office order, or a site not in VENTURES) —
+ * unattributed is a real answer and is reported, never dropped or guessed.
+ * `currency` is null when Odoo did not say; totals are never summed across
+ * currencies.
+ */
+export const OdooOrderSchema = z.object({
+  id: z.number().int().positive(),
+  ref: z.string().min(1),
+  at: z.string().nullable(),
+  state: z.string().min(1),
+  customer: z.string().nullable(),
+  websiteId: z.number().int().positive().nullable(),
+  venture: z.string().nullable(),
+  currency: z.string().nullable(),
+  amountTotal: z.number(),
+  amountUntaxed: z.number().nullable(),
+  amountTax: z.number().nullable(),
+});
+
+/** One (venture, currency) pair with its confirmed-order total. */
+export const OdooRevenueRowSchema = z.object({
+  venture: z.string().nullable(),
+  currency: z.string().nullable(),
+  orders: z.number().int().nonnegative(),
+  total: z.number(),
+});
+
 // ── Funnel — client journeys from first touch to conversion ─────────────────
 // Canonical stages; `nurtured` is optional so a journey renders as 4–5 touches.
 export const FunnelStageSchema = z.enum(['first_touch', 'engaged', 'nurtured', 'opted_in', 'converted']);
@@ -635,6 +664,8 @@ export type SopTask = z.infer<typeof SopTaskSchema>;
 export type RosterClient = z.infer<typeof RosterClientSchema>;
 export type OdooProduct = z.infer<typeof OdooProductSchema>;
 export type OdooWebsite = z.infer<typeof OdooWebsiteSchema>;
+export type OdooOrder = z.infer<typeof OdooOrderSchema>;
+export type OdooRevenueRow = z.infer<typeof OdooRevenueRowSchema>;
 export type FunnelStage = z.infer<typeof FunnelStageSchema>;
 export type FunnelRelationship = z.infer<typeof FunnelRelationshipSchema>;
 export type FunnelVenture = z.infer<typeof FunnelVentureSchema>;

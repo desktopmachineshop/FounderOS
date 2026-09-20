@@ -266,6 +266,31 @@ describe('odooStatus', () => {
     expect(s.meta?.ventures).toBe(3);
   });
 
+  test('the confirmed-order count is reported when the Sales app answers', async () => {
+    const s = await odooStatus(
+      ENV,
+      fakeFetch([
+        7, // authenticate
+        40, // product count
+        [{ id: 1, name: 'Desktop Machine Shop', domain: 'https://www.desktopmachineshop.com' }],
+        318, // confirmed sale.order count
+      ]),
+    );
+    expect(s.state).toBe('connected');
+    expect(s.meta?.orders).toBe(318);
+    expect(s.detail).toContain('318 confirmed orders');
+  });
+
+  test('an instance with no Sales app still connects, with no order claim made', async () => {
+    const s = await odooStatus(
+      ENV,
+      fakeFetch([7, 40, [], new Error('Object sale.order doesn not exist')]),
+    );
+    expect(s.state).toBe('connected');
+    expect(s.meta?.orders).toBeUndefined();
+    expect(s.detail).not.toContain('confirmed orders');
+  });
+
   test('rejected credentials are an error, not a silent not_configured', async () => {
     // Odoo answers a failed authenticate with `false`, HTTP 200.
     const s = await odooStatus(ENV, fakeFetch([false]));
