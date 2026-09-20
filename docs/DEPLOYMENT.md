@@ -95,9 +95,11 @@ this machine", which is the wrong question on the cloud instance.
 
 ## Setting up the cloud half (Railway)
 
-The repo ships `railway.json` (Nixpacks, `npm run build`, `npm start`,
-healthcheck on `/`) and pins Node 22, so a fresh service needs no build or start
-settings.
+The repo ships `railway.json` (`npm run build`, `npm start`, healthcheck on
+`/api/health`) and pins Node 22, so a fresh service needs no build or start
+settings. Note that Railway's newer **Railpack** builder ignores the
+`build.builder` field; it detects Next.js and runs the same commands, so this
+is only worth knowing if you need to pin a builder explicitly.
 
 1. **Create a project** and add a service from this GitHub repo.
    Keep it separate from the public demo project: the demo is meant to be open
@@ -116,6 +118,15 @@ settings.
 
 4. **Generate a public domain** (Settings → Networking). The app serves on the
    `PORT` Railway injects.
+
+   The deploy health check must point at **`/api/health`**, not `/`. With
+   `FOUNDER_OS_ACCESS_TOKEN` set, `/` answers `401` to anything without a
+   cookie — including the platform's own checker — so a check on `/` marks
+   every healthy deploy as failed. `/api/health` is the single path the gate
+   lets through; it reports liveness, the backend in use and the time, and
+   nothing else. Database trouble is reported in its body but does **not**
+   fail the check, so a brief Postgres blip cannot cause a rollback of a
+   perfectly good deploy.
 5. **Do not set `NODE_ENV`.** Railway passes service variables into the build,
    and `NODE_ENV=production` makes `npm ci` skip devDependencies (tailwindcss,
    typescript), so `next build` fails. `next start` is production mode already.

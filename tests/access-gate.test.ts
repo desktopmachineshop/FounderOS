@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gateDecision, challengePage, GATE_COOKIE } from '@/lib/access-gate';
+import { gateDecision, challengePage, GATE_COOKIE, isHealthRoute } from '@/lib/access-gate';
 
 /**
  * The production access gate. A student's FounderOS deploys to a PUBLIC
@@ -60,5 +60,21 @@ describe('middleware wiring', () => {
   test('static assets are excluded so the challenge page itself renders', () => {
     expect(src).toContain('_next');
     expect(src).toMatch(/matcher/);
+  });
+});
+
+describe('isHealthRoute', () => {
+  test('matches only the health endpoint', () => {
+    expect(isHealthRoute('/api/health')).toBe(true);
+    expect(isHealthRoute('/')).toBe(false);
+    expect(isHealthRoute('/api/agents')).toBe(false);
+  });
+
+  // The exemption is a hole in the gate, so it must be exactly one path — not
+  // a prefix that something else could be hung off.
+  test('is not a prefix match', () => {
+    expect(isHealthRoute('/api/health/secrets')).toBe(false);
+    expect(isHealthRoute('/api/healthz')).toBe(false);
+    expect(isHealthRoute('/evil/api/health')).toBe(false);
   });
 });

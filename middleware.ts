@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { challengePage, gateDecision, GATE_COOKIE } from '@/lib/access-gate';
+import { challengePage, gateDecision, GATE_COOKIE, isHealthRoute } from '@/lib/access-gate';
 import { bearerToken, isWorkerRoute, workerAuth } from '@/lib/worker-auth';
 
 /**
@@ -8,6 +8,10 @@ import { bearerToken, isWorkerRoute, workerAuth } from '@/lib/worker-auth';
  * completely open. See lib/access-gate.ts for the decision logic + tests.
  */
 export function middleware(req: NextRequest) {
+  // The platform's health check carries no cookie; gating it would make every
+  // deploy look dead. It exposes nothing but liveness.
+  if (isHealthRoute(req.nextUrl.pathname)) return NextResponse.next();
+
   // The workstation worker is not a browser: it carries a bearer token, not a
   // cookie, so the gate would hand it an HTML challenge page. Let a correctly
   // signed worker request through to its route, which checks the same token

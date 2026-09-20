@@ -228,9 +228,9 @@ npm run worker            # claims and runs video jobs
 npm run migrate:postgres  # move an existing SQLite store into Postgres
 ```
 
-The repo ships `railway.json` (Nixpacks build, `npm run build`, `npm start`,
-healthcheck on `/`) and pins Node 22, so a fresh Railway service needs no build
-or start settings. One trap worth repeating: **do not set `NODE_ENV`** as a
+The repo ships `railway.json` (`npm run build`, `npm start`, healthcheck on
+`/api/health`) and pins Node 22, so a fresh Railway service needs no build or
+start settings. One trap worth repeating: **do not set `NODE_ENV`** as a
 service variable — Railway passes it into the build, and `NODE_ENV=production`
 makes `npm ci` skip devDependencies, so `next build` fails.
 

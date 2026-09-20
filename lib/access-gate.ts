@@ -10,6 +10,20 @@
 
 export const GATE_COOKIE = 'founder_os_access';
 
+/**
+ * The one path the gate always lets through.
+ *
+ * A platform health check is not a browser: it carries no cookie, so the gate
+ * would answer the challenge page with 401 and the platform would conclude
+ * every deploy is broken. `/api/health` therefore stays open — it reports only
+ * that the process is serving, and carries no business data.
+ */
+export const HEALTH_PATH = '/api/health';
+
+export function isHealthRoute(pathname: string): boolean {
+  return pathname === HEALTH_PATH;
+}
+
 export type GateDecision =
   | { kind: 'open' } // no token configured — gate disabled
   | { kind: 'pass' } // cookie already carries the token
