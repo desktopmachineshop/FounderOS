@@ -184,3 +184,49 @@ export function NotWired(props: NotWiredInput) {
     </div>
   );
 }
+
+/**
+ * The other empty state: nothing written yet.
+ *
+ * `NotWired` says "this needs a source". Plenty of views need no source at all
+ * — the roadmap, the reference model, tasks — they are the operator's to fill.
+ * Telling him those need an integration would send him hunting for a connector
+ * that does not exist, which is its own species of dishonesty.
+ *
+ * So: same visual language, different claim, and deliberately no env var.
+ */
+export type NoEntriesInput = {
+  /** What would be listed here. */
+  what: string;
+  /** How entries arrive, when that is not obvious. */
+  hint?: string | null;
+};
+
+export function noEntriesCopy({ what, hint }: NoEntriesInput): {
+  title: string;
+  line: string;
+  hint: string | null;
+} {
+  return {
+    title: what,
+    line: 'Nothing here yet.',
+    hint: hint && hint.trim() !== '' ? hint : null,
+  };
+}
+
+export function NoEntries(props: NoEntriesInput) {
+  const { title, line, hint } = noEntriesCopy(props);
+  return (
+    <div className="border border-dashed border-os-border-strong px-4 py-5">
+      <div className="flex items-center gap-2">
+        <Dot state="off" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.26em] text-os-dim">
+          Empty
+        </span>
+      </div>
+      <p className="mt-2.5 font-mono text-[12px] text-os-muted">{title}</p>
+      <p className="mt-1 font-mono text-[11px] text-os-dim">{line}</p>
+      {hint && <p className="mt-1 font-mono text-[11px] text-os-dim">{hint}</p>}
+    </div>
+  );
+}

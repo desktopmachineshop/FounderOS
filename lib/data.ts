@@ -53,9 +53,10 @@ async function open(): Promise<FounderDb> {
   }
   const db = await openDb(target);
 
-  // Demo data only when asked for. Unset, the store stays empty and every view
-  // renders its `NotWired` state instead of a figure nobody earned. `npm run
-  // seed` still seeds on demand — it calls seedDatabase directly.
+  // Demo data only when asked for. Unset, the store stays empty and the views
+  // say so — `NotWired` where a source would fill them, `NoEntries` where the
+  // operator writes them himself — instead of showing a figure nobody earned.
+  // `npm run seed` still seeds on demand; it calls seedDatabase directly.
   if (demoDataEnabled()) {
     // Each clause back-fills databases created before that table existed;
     // seedDatabase is idempotent (INSERT OR REPLACE), so re-running only adds

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
-import { notWiredCopy } from '@/components/terminal';
+import { execSync } from 'node:child_process';
+import { describe, expect, it, test } from 'vitest';
+import { notWiredCopy, noEntriesCopy } from '@/components/terminal';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
@@ -83,5 +84,52 @@ describe('the NotWired component', () => {
     const block = src.slice(src.indexOf('export function NotWired'));
     // any bare multi-digit literal in the JSX would be a fabricated number
     expect(block).not.toMatch(/>\s*[£$€]?\d{2,}/);
+  });
+});
+
+/**
+ * Two different facts, two different sentences.
+ *
+ * "Needs a source" and "nothing written yet" must not read identically.
+ * /roadmap and /reference are the operator's to author — telling him they need
+ * an integration would send him looking for a connector that does not exist,
+ * which is its own species of dishonesty.
+ */
+describe('noEntriesCopy', () => {
+  it('says the thing is unwritten, not unwired', () => {
+    const copy = noEntriesCopy({ what: 'Roadmap entries' });
+    expect(copy.title).toBe('Roadmap entries');
+    expect(copy.line).toBe('Nothing here yet.');
+    expect(copy.line).not.toMatch(/needs|source|connect/i);
+  });
+
+  it('carries the hint about how entries arrive, when there is one', () => {
+    expect(noEntriesCopy({ what: 'Tasks', hint: 'Add one from the board above.' }).hint).toBe(
+      'Add one from the board above.',
+    );
+    expect(noEntriesCopy({ what: 'Tasks' }).hint).toBeNull();
+    expect(noEntriesCopy({ what: 'Tasks', hint: '  ' }).hint).toBeNull();
+  });
+
+  it('never names an env var — that would make it read as an integration', () => {
+    const copy = noEntriesCopy({ what: 'Reference domains', hint: 'Add your own.' });
+    expect(JSON.stringify(copy)).not.toMatch(/_KEY|\.env/);
+  });
+});
+
+describe('the empty states are actually used', () => {
+  /**
+   * The whole point of NotWired was that it replaces blank boxes. It sat
+   * exported and unreferenced by any page — the comment in lib/data.ts claimed
+   * "every view renders its NotWired state" while nothing imported it.
+   */
+  it('NotWired has real call sites, not just a test', () => {
+    const hits = execSync(
+      "grep -rl 'NotWired' app/ components/ || true",
+      { cwd: process.cwd(), encoding: 'utf8' },
+    )
+      .split('\n')
+      .filter((l: string) => l.trim() !== '' && !l.includes('components/terminal.tsx'));
+    expect(hits.length).toBeGreaterThan(0);
   });
 });

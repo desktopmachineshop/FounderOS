@@ -163,7 +163,7 @@ export function WorkflowMap({
   if (!current || !stats) {
     return (
       <p className="rounded-xl border border-dashed border-os-border px-4 py-10 text-center text-xs text-os-dim">
-        No workflows seeded yet.
+        No workflows yet.
       </p>
     );
   }

@@ -13,7 +13,7 @@ import { inboundLast24h } from '@/lib/comms';
 import { groupRoadmapByQuarter } from '@/lib/roadmap';
 import { PageHeader } from '@/components/PageHeader';
 import { HomeSocialGraph } from '@/components/HomeSocialGraph';
-import { Badge, Dot, Kbd, Label, SectionHead, Spark } from '@/components/terminal';
+import { Badge, Dot, Kbd, Label, SectionHead, Spark, NotWired, NoEntries } from '@/components/terminal';
 import { runsPerDay, inboundPerDay, stateOfWorld, type Tone } from '@/lib/pulse-history';
 import type { ConnectorStatus } from '@/lib/connectors/types';
 
@@ -292,6 +292,13 @@ export default async function HomePage() {
         <section className="min-w-0">
           <SectionHead label="Agents" count={`${activeAgents} live`} link="Full roster" href="/agents" />
           <div className="flex flex-col gap-2">
+            {agents.length === 0 && (
+              <NotWired
+                what="The agent roster and each agent's last run"
+                needs="agents in the roster"
+                detail="The runtime registry exists in code — these cards read from the database, which starts empty."
+              />
+            )}
             {agents.map((a) => {
               const last = lastRunByAgent.get(a.id);
               return (
@@ -330,6 +337,9 @@ export default async function HomePage() {
         <section className="flex min-w-0 flex-col gap-[22px]">
           <div>
             <SectionHead label="Recent runs" count={recentRuns.length} />
+            {recentRuns.length === 0 && (
+              <NoEntries what="Agent runs" hint="Runs appear here once an agent has been run." />
+            )}
             <ul className="flex flex-col gap-1.5">
               {recentRuns.slice(0, 6).map((r) => (
                 <li

@@ -361,9 +361,16 @@ export default async function FunnelPage({
         <div className="flex shrink-0 items-center gap-2">
           {isLive ? (
             <Badge tone="ok">live · {liveLabel}</Badge>
-          ) : (
+          ) : journeys.length > 0 ? (
+            // Rows but no live CRM — they came from the seed, so say so.
             <Badge tone="warn" ghost>
               demo data
+            </Badge>
+          ) : (
+            // No CRM and no rows. "demo data" would claim data that is not
+            // there; the honest badge names what would fill this.
+            <Badge tone="warn" ghost>
+              no CRM connected
             </Badge>
           )}
           <Badge tone="accent">
