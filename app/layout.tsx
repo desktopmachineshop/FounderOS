@@ -5,8 +5,6 @@ import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ConductorPanel } from '@/components/ConductorPanel';
-import { CohortBanner } from '@/components/CohortBanner';
-import { CohortModal } from '@/components/CohortModal';
 import { getDb } from '@/lib/data';
 import type { Command } from '@/lib/palette';
 import { buildPaletteCommands } from '@/lib/palette-commands';
@@ -62,16 +60,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 full-bleed on 32"/ultrawide. See tailwind screens wide/ultra. */}
             <div className="mx-auto max-w-[1280px] wide:max-w-[1760px] ultra:max-w-none">
               {children}
-              {/* Cohort invite — last thing on every view, by construction */}
-              <CohortBanner />
             </div>
           </main>
         </div>
         <CommandPalette commands={await buildCommands()} />
         {/* Notion-style agent dock — the Conductor, aware of the current screen */}
         <ConductorPanel />
-        {/* First-run welcome on the home screen — once per browser */}
-        <CohortModal />
       </body>
     </html>
   );

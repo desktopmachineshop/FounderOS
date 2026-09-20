@@ -109,18 +109,12 @@ fixed `Sidebar` (Operate/System groups) + sticky `Topbar` (breadcrumb + ⌘K) +
 `app/api/*` — note `GET /api/brain?q=` runs a hybrid search; bare `GET` returns
 provider status.
 
-## Cohort invite (demo growth surface)
+## No growth surfaces (2026-09-20)
 
-Copy + URL live once in `lib/cohort.ts` (`COHORT_URL`, `COHORT_CTA`,
-`COHORT_STORAGE_KEY`) so the two placements can't drift:
-
-- `CohortBanner` — static footer CTA, rendered in `app/layout.tsx` right after
-  `{children}`, so it is the last thing on **every** view. No client JS.
-- `CohortModal` — first-run welcome pop-up, home screen only, once per browser
-  (`shouldShowCohortModal`; dismissal persists to localStorage). Mounted beside
-  `ConductorPanel` in the layout; it gates itself on `usePathname()`.
-
-Contract lives in `tests/cohort.test.ts`.
+Upstream shipped a cohort funnel — a footer CTA on every view plus a first-run
+pop-up, both pointing at thefounderos.com. Both are **removed**, along with
+`lib/cohort.ts` and their components. This is an operator's own dashboard; it
+does not advertise anything. Do not reintroduce a marketing surface here.
 
 ## Deployment: two hosts, one database (2026-09-19)
 
