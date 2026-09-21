@@ -957,10 +957,10 @@ const sopTasks: SopTask[] = [
 // exist and worked; available = installed/configured but needs a key or start.
 const tools: Tool[] = [
   // Knowledge
-  { id: 'tool-gbrain', name: 'G-Brain (gbrain CLI)', category: 'Knowledge', status: 'connected', color: GRAY.white, description: 'v0.41 · brain-store markdown + Supabase + ZeroEntropy embeddings. Live.' },
-  { id: 'tool-brain-store', name: 'brain-store/', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local markdown knowledge base at knowledge/brain-store.' },
-  { id: 'tool-zeroentropy', name: 'ZeroEntropy', category: 'Knowledge', status: 'connected', color: GRAY.mid, description: 'Vector embeddings behind gbrain hybrid search. Key in ~/.config/knowledge/config.json.' },
-  { id: 'tool-supabase', name: 'Supabase (Second Brain)', category: 'Knowledge', status: 'available', color: GRAY.mid, description: '1240 pages / 15k chunks. Free tier pauses on idle — unpause from dashboard when queries fail.' },
+  { id: 'tool-gbrain', name: 'G-Brain', category: 'Knowledge', status: 'available', color: GRAY.white, description: 'Markdown brain + Postgres + embeddings. Local CLI, or set GBRAIN_URL for a cloud brain — docs/GBRAIN_CLOUD.md.' },
+  { id: 'tool-brain-store', name: 'brain-store/', category: 'Knowledge', status: 'available', color: GRAY.light, description: 'The markdown knowledge base a local brain indexes.' },
+  { id: 'tool-zeroentropy', name: 'ZeroEntropy', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'One embedding-provider option behind hybrid search. Needs a key.' },
+  { id: 'tool-supabase', name: 'Supabase', category: 'Knowledge', status: 'available', color: GRAY.mid, description: 'Managed Postgres option for the brain. Free tier pauses on idle, so it is a poor fit for an always-on one.' },
   { id: 'tool-obsidian', name: 'Notes Vault', category: 'Knowledge', status: 'connected', color: GRAY.light, description: 'Local notes vault. Direct filesystem access.' },
   { id: 'tool-notion', name: 'Notion', category: 'Knowledge', status: 'available', color: GRAY.dim, description: 'Client implemented. Set NOTION_API_KEY and share pages with the integration.' },
   // Social & growth

@@ -44,15 +44,41 @@ Swapping seeded tables for live sources (Attio, Zernio, OpenClaw, MCP status)
 is a repo-level change. Keep it that way: new data = new repo method + Zod
 schema + seed entry + test.
 
-## G-Brain — ANSWERED (2026-06-11)
+## G-Brain — not installed (corrected 2026-09-21)
 
-G-Brain = **GBrain v0.41** (`gbrain` CLI on PATH): markdown
-knowledge in `~/knowledge/brain-store/` + Supabase backend ("Second Brain",
-free tier — pauses on idle) + ZeroEntropy embeddings (key in
-`~/.config/knowledge/config.json`). The real provider in `lib/connectors/gbrain.ts`
-shells out to the CLI (`doctor --json --fast`, `query --no-expand`) and falls
-back to local brain-store grep when the database is unreachable. Default
-`BRAIN_PROVIDER=gbrain`; `stub` exists for tests.
+This section previously read "ANSWERED", and asserted **GBrain v0.41** on PATH,
+a brain-store at `~/knowledge/brain-store/`, a Supabase "Second Brain" and a
+ZeroEntropy key at `~/.config/knowledge/config.json`. **None of that is true of
+this instance** — it was inherited from upstream and described its author's
+machine. Dave has no G-Brain installed anywhere. The claim is recorded here
+rather than deleted, because an agent that reads a confident falsehood acts on
+it: this one produced a version-floor upgrade plan for software that does not
+exist.
+
+[GBrain](https://github.com/garrytan/gbrain) is real and is the intended
+backend; what is fictional is that it is already running here. The plan is a
+**cloud brain, deployed fresh** (current release, not an upgrade) — see
+`docs/GBRAIN_CLOUD.md`. It starts empty, so `/brain` shows an honest empty
+state until notes go in.
+
+Two providers exist behind `BrainProvider` (`lib/brain.ts`):
+
+- `lib/connectors/gbrain.ts` — shells out to a local `gbrain` CLI
+  (`doctor --json --fast`, `query --no-expand`), falling back to grepping the
+  brain-store when the database is unreachable. The default, and the one that
+  needs a workstation.
+- `lib/connectors/gbrain-http.ts` — MCP over HTTP to a `gbrain serve --http`
+  brain, selected by `GBRAIN_URL` (+ `GBRAIN_TOKEN`). It calls the frozen
+  `recall` verb rather than `search`, and uses the `initialize` handshake for
+  status because `run_doctor`/`get_stats` need admin scope.
+
+`BRAIN_PROVIDER=stub` wins over both and is what tests use.
+
+**The seed's Knowledge rows carried the same fiction** — `tool-gbrain` marked
+`connected` and "v0.41 … Live", `tool-zeroentropy` naming a config path that is
+not there, `tool-supabase` quoting "1240 pages / 15k chunks" (the same invented
+figure `tests/no-fabrication.test.ts` already bans on `/doctor`). All corrected
+to `available` with no invented specifics.
 
 ## Real connectors & agents (v2)
 
@@ -129,10 +155,14 @@ does not advertise anything. Do not reintroduce a marketing surface here.
 ## Deployment: two hosts, one database (2026-09-19)
 
 Production runs on **two machines sharing one Postgres** — see
-`docs/DEPLOYMENT.md`. This is forced, not preferred: six connectors
-(`local-stack`, `wispr`, `whatsapp`, `obsidian`, `gbrain`, and zernio's account
+`docs/DEPLOYMENT.md`. This is forced, not preferred: five connectors
+(`local-stack`, `wispr`, `whatsapp`, `obsidian`, and zernio's account
 map) read local files/ports and cannot run in the cloud; the ManyChat webhook
 and scheduled runs need a public always-on URL and cannot run on a laptop.
+**`gbrain` was the sixth and no longer is** — `gbrain serve --http` is a real
+remote server, so setting `GBRAIN_URL` moves the brain to the cloud host
+(`docs/GBRAIN_CLOUD.md`). What was workstation-bound was this repo's connector,
+not G-Brain.
 
 - `lib/sql/` — `SqlDriver` with SQLite + Postgres drivers. The schema and every
   query are written **once in SQLite dialect**; `lib/sql/dialect.ts` translates
@@ -183,6 +213,7 @@ and scheduled runs need a public always-on URL and cannot run on a laptop.
   (`Dot`, `Badge`, `Label`, `SectionHead`, `Kbd`, `Spark`). `/org` keeps its
   existing markup — it inherits the tokens through Tailwind classes only.
 - Env vars: `FOUNDER_OS_DB`, `BRAIN_PROVIDER`, `GBRAIN_BIN`, `GBRAIN_STORE`,
+  `GBRAIN_URL`/`GBRAIN_TOKEN` (cloud brain),
   plus connector creds in `.env.local`.
 - Heavy interaction-driven visualizations load via `next/dynamic`
   (`ssr: false`) behind dimension-matched skeletons (see
