@@ -114,3 +114,35 @@ describe('/analytics draws no invented trends', () => {
     expect(src).not.toMatch(/deterministic (rising )?(spark|bars)/i);
   });
 });
+
+/**
+ * The seed's Knowledge rows described a G-Brain install that does not exist —
+ * `tool-gbrain` marked `connected` with "v0.41 … Live", `tool-zeroentropy`
+ * naming a config path that is not there, and `tool-supabase` quoting
+ * "1240 pages / 15k chunks": the SAME invented figure this file already bans
+ * on /doctor, which had simply survived one file over.
+ *
+ * They were inherited from upstream and described its author's machine. Demo
+ * rows may be illustrative; they may not assert a specific live personal setup,
+ * because that is what a reader — human or agent — acts on.
+ */
+describe('the seed does not claim a G-Brain that is not installed', () => {
+  const seed = read('lib/seed.ts');
+
+  it('no invented page or chunk counts', () => {
+    expect(seed).not.toMatch(/1240\s*pages/);
+    expect(seed).not.toMatch(/15k\s*chunks/);
+  });
+
+  it('no credential paths are asserted as present', () => {
+    expect(seed).not.toContain('~/.config/knowledge/config.json');
+  });
+
+  it('the brain stack is offered, not claimed as live', () => {
+    for (const id of ['tool-gbrain', 'tool-zeroentropy', 'tool-brain-store']) {
+      const row = seed.split('\n').find((l) => l.includes(`id: '${id}'`));
+      expect(row, `${id} row missing`).toBeTruthy();
+      expect(row, `${id} must not claim connected`).not.toContain("status: 'connected'");
+    }
+  });
+});
