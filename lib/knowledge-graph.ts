@@ -1,5 +1,6 @@
 import type { Agent, Department, Person, SopTask } from '@/lib/schemas';
 import { lifeAreaForDepartment } from '@/lib/life-map';
+import { operatorName } from '@/lib/operator';
 
 /**
  * The operating-knowledge graph that powers the /brain force graph — the operator's
@@ -160,7 +161,7 @@ export function buildKnowledgeGraph(
 
   // the operator at the core — every pillar hangs off him (the life-at-the-core idea
   // folded in from the old life map).
-  nodes.push({ id: SELF_ID, kind: 'self', label: 'Dave', ring: RING.self });
+  nodes.push({ id: SELF_ID, kind: 'self', label: operatorName(), ring: RING.self });
 
   // Live Paperclip board agents (Conductor, Forge, the Hermes pool, …) orbit
   // the operator as an inner ring — real seats from the board API, [] when it's

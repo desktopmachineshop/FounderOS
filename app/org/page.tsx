@@ -3,6 +3,7 @@ import { Users } from 'lucide-react';
 import { getDb } from '@/lib/data';
 import { buildHierarchy, flattenNodes, type AgentNode } from '@/lib/hierarchy';
 import { LIFE_AREAS, lifeAreaForDepartment } from '@/lib/life-map';
+import { operatorName } from '@/lib/operator';
 import { VENTURES, getVenture, ventureAgentSet, venturesForAgent } from '@/lib/ventures';
 import { ConductorCard } from '@/components/ConductorCard';
 import { SparkIcon } from '@/components/SparkIcon';
@@ -172,7 +173,7 @@ export default async function OrgChartPage({ searchParams }: { searchParams?: { 
       {/* Operator */}
       <div className="flex flex-col items-center">
         <Users className="h-7 w-7 text-os-text" />
-        <div className="mt-1 text-base font-bold tracking-wide">Alex Rivera</div>
+        <div className="mt-1 text-base font-bold tracking-wide">{operatorName()}</div>
         <div className="text-[10px] uppercase tracking-[0.3em] text-os-dim">Operator</div>
         <div className="mt-2 h-6 w-px bg-os-border-bright" />
         <div className="text-[10px] uppercase tracking-[0.2em] text-os-muted">Conductor (Super Agent)</div>
