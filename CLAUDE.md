@@ -54,6 +54,12 @@ shells out to the CLI (`doctor --json --fast`, `query --no-expand`) and falls
 back to local brain-store grep when the database is unreachable. Default
 `BRAIN_PROVIDER=gbrain`; `stub` exists for tests.
 
+A **second provider** (`lib/connectors/gbrain-http.ts`) talks MCP over HTTP to a
+`gbrain serve --http` brain, selected by setting `GBRAIN_URL` (+ `GBRAIN_TOKEN`).
+It calls the frozen `recall` verb rather than `search`, and uses the
+`initialize` handshake for status because `run_doctor`/`get_stats` need admin
+scope. Setup and the reasoning: `docs/GBRAIN_CLOUD.md`.
+
 ## Real connectors & agents (v2)
 
 Dave's directive: real integrations, not larp. Strict black & white theme
@@ -129,10 +135,14 @@ does not advertise anything. Do not reintroduce a marketing surface here.
 ## Deployment: two hosts, one database (2026-09-19)
 
 Production runs on **two machines sharing one Postgres** — see
-`docs/DEPLOYMENT.md`. This is forced, not preferred: six connectors
-(`local-stack`, `wispr`, `whatsapp`, `obsidian`, `gbrain`, and zernio's account
+`docs/DEPLOYMENT.md`. This is forced, not preferred: five connectors
+(`local-stack`, `wispr`, `whatsapp`, `obsidian`, and zernio's account
 map) read local files/ports and cannot run in the cloud; the ManyChat webhook
 and scheduled runs need a public always-on URL and cannot run on a laptop.
+**`gbrain` was the sixth and no longer is** — `gbrain serve --http` is a real
+remote server, so setting `GBRAIN_URL` moves the brain to the cloud host
+(`docs/GBRAIN_CLOUD.md`). What was workstation-bound was this repo's connector,
+not G-Brain.
 
 - `lib/sql/` — `SqlDriver` with SQLite + Postgres drivers. The schema and every
   query are written **once in SQLite dialect**; `lib/sql/dialect.ts` translates
