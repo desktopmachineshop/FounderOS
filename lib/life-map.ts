@@ -1,6 +1,6 @@
 /**
- * Dave's life map: the radial taxonomy at the heart of the OS.
- * Center = Dave's life; ring 1 = color-coded life areas; ring 2 = the
+ * The operator's life map: the radial taxonomy at the heart of the OS.
+ * Center = the operator's life; ring 1 = color-coded life areas; ring 2 = the
  * modules inside each area. Communication additionally carries the contact
  * tier system — the numbered/colored response-priority ladder for people.
  *
@@ -8,6 +8,7 @@
  * each life area owns a hue, and everything underneath inherits it.
  */
 import type { LifeMap, LifeMapNode } from '@/lib/schemas';
+import { operatorPossessive } from '@/lib/operator';
 
 export type LifeModule = { id: string; label: string; detail: string };
 
@@ -177,7 +178,7 @@ export function buildLifeMap(): LifeMap {
     {
       id: 'center',
       type: 'center',
-      label: "Dave's Life",
+      label: `${operatorPossessive()} Life`,
       color: '#fafafa',
       parent: null,
       detail: 'The core. Everything orbits this.',
