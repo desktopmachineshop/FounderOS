@@ -82,3 +82,31 @@ async function open(): Promise<FounderDb> {
 export function resetDb(): void {
   instance = null;
 }
+
+/**
+ * Drop the memoized handle so the next caller opens a fresh one.
+ *
+ * `getDb()` memoizes, and used to discard the handle only if the *initial*
+ * open threw — a connection that died later was cached forever. That is not
+ * hypothetical: the production database was wiped while the app was running on
+ * 2026-09-21, and because it had opened successfully the evening before, every
+ * request for the next day used a pool pointing at something that no longer
+ * existed. Only a manual restart cleared it.
+ *
+ * The health route calls this whenever its read fails, so the platform's own
+ * probe is what heals the instance and no human has to notice.
+ *
+ * The old handle is closed on a best-effort basis: a broken pool may well
+ * throw on close, and swallowing that is the entire point — the memo is
+ * dropped either way.
+ */
+export async function invalidateDb(): Promise<void> {
+  const stale = instance;
+  instance = null;
+  if (!stale) return;
+  try {
+    await (await stale).close();
+  } catch {
+    // Already broken. Nothing to salvage, and nothing worth failing over.
+  }
+}
