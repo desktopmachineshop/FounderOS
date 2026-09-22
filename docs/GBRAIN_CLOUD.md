@@ -68,6 +68,53 @@ Order matters: steps 1–2 are prerequisites for the rest.
    GBRAIN_TOKEN=gbrain_…
    ```
 
+## Railway service config (verified against the source, 2026-09-21)
+
+GBrain is a Bun project (`engines.bun >= 1.3.11`, `bin.gbrain -> src/cli.ts`,
+no `start` script), deployed as its **own service** beside the app — not as
+code inside the Next.js app.
+
+Deploy from a **fork** you control. Railway auto-deploys whatever lands on the
+branch it tracks, so tracking the upstream repo would put someone else's
+commits into production unreviewed.
+
+| setting | value |
+|---|---|
+| Build | `bun install` |
+| Start | `bun run src/cli.ts serve --http --bind 0.0.0.0 --port $PORT --public-url https://<service-domain>` |
+| Variable | `GBRAIN_DATABASE_URL` → its **own** database on the Postgres service |
+
+Three details are load-bearing; each one silently breaks the deploy if missed:
+
+- **`--bind 0.0.0.0` is required.** The default flipped to `127.0.0.1` in
+  v0.34.1 specifically so a laptop does not expose its brain. In a container
+  that default means nothing can reach the service — and the process still
+  logs that it is listening, so it looks healthy from the inside.
+- **`GBRAIN_DATABASE_URL`, not `DATABASE_URL`.** `docs/ENGINES.md`: a plain
+  `DATABASE_URL` is "adopted only when the target is already a gbrain brain or
+  holds no tables at all", while `GBRAIN_DATABASE_URL` is "always stated
+  intent". FounderOS's database already holds the app's schema, so the plain
+  form would be refused — and it should be a separate database regardless.
+- **Its own database, on the same Postgres instance is fine.** Railway's
+  Postgres supports `pgvector` (`CREATE EXTENSION IF NOT EXISTS vector;`), so
+  no second database provider is needed.
+
+Two things are optional and degrade honestly rather than failing:
+
+- **No embedding key** → search falls back to keyword-only and the response
+  carries `search_degraded`. GBrain is explicitly designed to start keyless, so
+  a brain with no keys at all still serves `recall` over MCP. That is enough to
+  verify this repo's HTTP provider end to end.
+- **No `CLAUDE_CODE_OAUTH_TOKEN`** → no synthesis; retrieval still works.
+
+`GBRAIN_HTTP_CORS_ORIGIN` is unset deliberately: it governs browser
+cross-origin calls to the OAuth endpoints, and FounderOS calls the brain
+server-side with a bearer token, so it never applies.
+
+The container needs **both** binaries when the claude-cli recipe is in use —
+`gbrain` and `claude` (`@anthropic-ai/claude-code`). A container with only
+gbrain fails at the first synthesis call.
+
 ## Using a Claude subscription instead of an API key
 
 G-Brain's `claude-cli` recipe routes chat, synthesis and query expansion through
